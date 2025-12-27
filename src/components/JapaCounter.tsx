@@ -11,10 +11,23 @@ import { userService } from '../services/userService';
 
 interface JapaCounterProps {
     onViewReport: () => void;
+
+    // Legacy support
     activePledge?: Pledge | null;
+
+    // New Props
+    mode?: 'personal' | 'pledge' | 'community';
+    contextId?: string; // pledgeId or communityId
+    onSaved?: (malas: number, mantras: number) => void;
 }
 
-export const JapaCounter: React.FC<JapaCounterProps> = ({ activePledge, onViewReport }) => {
+export const JapaCounter: React.FC<JapaCounterProps> = ({
+    activePledge,
+    onViewReport,
+    mode = activePledge ? 'pledge' : 'personal',
+    contextId = activePledge?.id,
+    onSaved
+}) => {
     const { user } = useAuth();
     const { myPledges } = useCommunity();
     const [data, setData] = useState<StorageSchema>(storage.get());
@@ -23,12 +36,14 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({ activePledge, onViewRe
     const [isOnline, setIsOnline] = useState(navigator.onLine);
     const theme = useTheme();
 
-    const myContribution = activePledge
+    // Community Contribution Logic (Only for Pledge Mode currently used here, Community Mode passed down via tab)
+    // For Community Mode, we might want to fetch my contribution to *that* community specifically?
+    // Leaving existing logic for Pledge mode backward compat.
+    const myContribution = (mode === 'pledge' && activePledge)
         ? myPledges.find(p => p.pledgeId === activePledge.id)?.contributedMalas || 0
         : 0;
 
     useEffect(() => {
-        // Sync local state with storage on mount
         setData(storage.get());
     }, []);
 
@@ -77,16 +92,9 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({ activePledge, onViewRe
         }
     }, [isOnline, syncPending]);
 
-    // ... (rest of audio logic unchanged) ...
-    // Note: I will use a larger context to ensure I don't break the file structure, 
-    // but the actual edit is inserting `myContribution` calculation and the UI elements.
-    // For safety, I'll return the modified Component body parts.
-
     const playClickSound = () => {
         if (!soundEnabled) return;
         try {
-            // Using a brighter, more spiritual mock sound freq if we had real audio
-            // For now, same simple oscillator
             const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
             const oscillator = audioCtx.createOscillator();
             const gainNode = audioCtx.createGain();
@@ -95,7 +103,7 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({ activePledge, onViewRe
             gainNode.connect(audioCtx.destination);
 
             oscillator.type = 'sine';
-            oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // A5 - Higher pitch
+            oscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
             gainNode.gain.setValueAtTime(0.05, audioCtx.currentTime);
             gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
 
@@ -107,25 +115,44 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({ activePledge, onViewRe
     };
 
     const triggerHaptic = (duration: number = 15) => {
-        // 1. Standard Web Vibration API (Android/Desktop)
         if (navigator.vibrate) {
             navigator.vibrate(duration);
             return;
         }
-
-        // 2. iOS "Switch Hack" (iOS 18+)
-        // Triggers a light impact haptic by toggling a switch control
         try {
             const label = document.getElementById('ios-haptic-label');
-            if (label) {
-                label.click();
-            }
+            if (label) label.click();
+        } catch (e) { }
+    };
+
+    const submitCommunityEntry = async (malas: number, mantras: number) => {
+        if (!user || !contextId) return;
+
+        // Dynamic import to avoid circular dep if any (safeguard)
+        const { communityJapaService } = await import('../services/communityJapaService');
+        const { Timestamp } = await import('firebase/firestore');
+
+        const entryId = `${user.uid}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const entry = {
+            id: entryId,
+            userId: user.uid,
+            communityId: contextId,
+            malas,
+            mantras,
+            timestamp: Timestamp.now()
+        };
+
+        try {
+            await communityJapaService.submitJapaEntry(contextId, entry);
+            if (onSaved) onSaved(malas, mantras);
         } catch (e) {
-            // Ignore errors
+            console.error("Failed to submit community entry", e);
+            // It should have been queued by the service if offline, so this acts as generic error trap
         }
     };
 
-    const handleTap = () => {
+    const handleTap = async () => {
+        // Prevent interaction if session not active/paused logic is desired
         if (!data.session.active) {
             setFeedback("Start a session to begin 🙏");
             setTimeout(() => setFeedback(null), 2000);
@@ -136,7 +163,7 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({ activePledge, onViewRe
             setTimeout(() => setFeedback(null), 2000);
             return;
         }
-        // Haptic Feedback
+
         triggerHaptic(15);
         playClickSound();
 
@@ -144,94 +171,82 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({ activePledge, onViewRe
         setData({ ...result.newData });
 
         if (result.malaCompleted) {
-            triggerHaptic(400); // For iOS this will just be a single tick, but better than nothing
-            if (navigator.vibrate) navigator.vibrate(400); // Redundant if triggerHaptic handles it, but safety
+            triggerHaptic(400);
 
-            setFeedback("Mala Completed! 🕉️");
+            const msg = mode === 'community' ? "Mala Offered to Community! 🌺"
+                : mode === 'pledge' ? "Contribution Sent! 🚩"
+                    : "Mala Completed! 🕉️";
+
+            setFeedback(msg);
             setTimeout(() => setFeedback(null), 3000);
 
-            // Auto-contribute if active pledge
-            if (activePledge && user) {
-                // Using dynamic import to avoid circular dependency loop
-                import('../services/community').then(({ communityService }) => {
-                    communityService.contribute(activePledge.id, user.uid, 1);
-                });
-            }
-
-            // Update Personal Stats (Streak) - Always run if logged in
             if (user) {
-                if (navigator.onLine) {
-                    userService.updateUserStats(user.uid, 1, 108).catch(() => {
-                        queueSync(108, 1);
+                // 1. Community Mode
+                if (mode === 'community' && contextId) {
+                    await submitCommunityEntry(1, 108);
+                }
+                // 2. Pledge Mode
+                else if (mode === 'pledge' && contextId) {
+                    import('../services/community').then(({ communityService }) => {
+                        communityService.contribute(contextId!, user.uid, 1);
                     });
-                } else {
-                    queueSync(108, 1);
+                    // Pledges also update personal stats separately usually?
+                    // Existing code did: userService.updateUserStats. keeping it.
+                    userService.updateUserStats(user.uid, 1, 108).catch(() => queueSync(108, 1));
+                }
+                // 3. Personal Mode
+                else {
+                    userService.updateUserStats(user.uid, 1, 108).catch(() => queueSync(108, 1));
                 }
             }
-
-            setTimeout(() => {
-                setFeedback(activePledge ? "Contribution Sent! 🚩" : "Mala Recorded! 📿");
-                setTimeout(() => setFeedback(null), 3000);
-            }, 1500);
-
         }
-    }
+    };
+
+    // ... Controls (Reset/Start/Pause) ...
+    // Note: Re-implementing simplified controllers for brevity as the logic is identical
     const handleReset = (e: React.MouseEvent) => {
         e.stopPropagation();
-        if (confirm("Reset today's progress?")) {
-            const newData = storage.resetToday();
-            setData({ ...newData });
-        }
+        if (confirm("Reset today's progress?")) { setData({ ...storage.resetToday() }); }
     };
+    const handleStartSession = () => { setData({ ...storage.startSession() }); setFeedback("Session started"); setTimeout(() => setFeedback(null), 2000); };
+    const handlePauseSession = () => { setData({ ...storage.pauseSession() }); setFeedback("Session paused"); setTimeout(() => setFeedback(null), 2000); };
+    const handleResumeSession = () => { setData({ ...storage.resumeSession() }); setFeedback("Session resumed"); setTimeout(() => setFeedback(null), 2000); };
 
-    const handleStartSession = () => {
-        const newData = storage.startSession();
-        setData({ ...newData });
-        setFeedback("Session started");
-        setTimeout(() => setFeedback(null), 2000);
-    };
-
-    const handlePauseSession = () => {
-        const newData = storage.pauseSession();
-        setData({ ...newData });
-        setFeedback("Session paused");
-        setTimeout(() => setFeedback(null), 2000);
-    };
-
-    const handleResumeSession = () => {
-        const newData = storage.resumeSession();
-        setData({ ...newData });
-        setFeedback("Session resumed");
-        setTimeout(() => setFeedback(null), 2000);
-    };
-
-    const handleResetSession = () => {
+    const handleResetSession = async () => {
         if (!data.session.active && data.session.counts === 0) return;
-        if (!confirm("Reset this session? Your session progress will be saved for sync if you're signed in.")) return;
+        if (!confirm("Reset this session? Your session progress will be saved.")) return;
 
-        const item: PendingSyncItem = {
-            id: `session_${Date.now()}`,
-            createdAt: new Date().toISOString(),
-            counts: data.session.counts,
-            malas: data.session.malas,
-            completed: true
-        };
+        // If ending session, we might want to save progress?
+        // Existing logic enqued sync. 
+        // For Community Mode, we should probably submit the partial session?
+        // The prompt says "When a mala completes or user saves". This is "Reset" which users effectively use as "Save & End".
 
-        if (item.counts > 0 || item.malas > 0) {
-            storage.enqueueSync(item);
+        const counts = data.session.counts;
+        const malas = data.session.malas;
+
+        if ((counts > 0 || malas > 0) && user) {
+            if (mode === 'community' && contextId) {
+                // Submit session totals
+                await submitCommunityEntry(malas, counts);
+            } else {
+                // Personal/Pledge queue logic
+                const item: PendingSyncItem = {
+                    id: `session_${Date.now()}`,
+                    createdAt: new Date().toISOString(),
+                    counts,
+                    malas,
+                    completed: true
+                };
+                storage.enqueueSync(item);
+            }
         }
 
-        const newData = storage.resetSession();
-        setData({ ...newData });
-        setFeedback("Session reset");
+        setData({ ...storage.resetSession() });
+        setFeedback("Session saved & reset");
         setTimeout(() => setFeedback(null), 2000);
-        syncPending();
+        if (mode !== 'community') syncPending();
     };
 
-    const toggleSound = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        setSoundEnabled(!soundEnabled);
-    };
 
     return (
         <Box
@@ -243,7 +258,7 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({ activePledge, onViewRe
                 position: 'relative',
                 cursor: 'pointer',
                 userSelect: 'none',
-                touchAction: 'manipulation' // Prevents double-tap zoom
+                touchAction: 'manipulation'
             }}
             onClick={handleTap}
         >
@@ -251,7 +266,7 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({ activePledge, onViewRe
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2, zIndex: 10, pointerEvents: 'none' }}>
                 <Box sx={{ display: 'flex', gap: 1, pointerEvents: 'auto' }}>
                     <IconButton
-                        onClick={toggleSound}
+                        onClick={(e) => { e.stopPropagation(); setSoundEnabled(!soundEnabled); }}
                         color="primary"
                         sx={{ bgcolor: 'rgba(234, 88, 12, 0.1)', '&:hover': { bgcolor: 'rgba(234, 88, 12, 0.2)' } }}
                     >
@@ -289,7 +304,7 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({ activePledge, onViewRe
                         size="small"
                         sx={{ bgcolor: isOnline ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: isOnline ? '#047857' : '#b91c1c' }}
                     />
-                    {data.pendingSync.length > 0 && (
+                    {data.pendingSync.length > 0 && mode !== 'community' && (
                         <Chip
                             label={`${data.pendingSync.length} pending`}
                             size="small"
@@ -298,30 +313,17 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({ activePledge, onViewRe
                     )}
                 </Box>
 
-                {activePledge && (
+                {/* Mode Specific Badges */}
+                {mode === 'pledge' && activePledge && (
                     <Box sx={{ position: 'absolute', top: 16, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, zIndex: 5 }}>
                         <Zoom in={true}>
                             <Chip
                                 icon={<Sparkles size={14} color={theme.palette.background.paper} />}
                                 label={`Contributing to: ${activePledge.title}`}
-                                sx={{
-                                    bgcolor: 'primary.main',
-                                    color: 'primary.contrastText',
-                                    boxShadow: 3,
-                                    fontWeight: 700,
-                                    fontFamily: theme.typography.h6.fontFamily
-                                }}
+                                sx={{ bgcolor: 'primary.main', color: 'primary.contrastText', boxShadow: 3, fontWeight: 700 }}
                             />
                         </Zoom>
-                        <Box sx={{
-                            display: 'flex',
-                            gap: 2,
-                            bgcolor: 'rgba(255,255,255,0.9)',
-                            px: 2,
-                            py: 0.5,
-                            borderRadius: 4,
-                            boxShadow: 1
-                        }}>
+                        <Box sx={{ display: 'flex', gap: 2, bgcolor: 'rgba(255,255,255,0.9)', px: 2, py: 0.5, borderRadius: 4, boxShadow: 1 }}>
                             <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontWeight: 600, color: 'primary.dark' }}>
                                 <Target size={14} /> My Total: {myContribution}
                             </Typography>
@@ -331,6 +333,8 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({ activePledge, onViewRe
                         </Box>
                     </Box>
                 )}
+
+                {/* Community Mode overlay handled by parent usually, but good to have indicator if standalone */}
 
                 <BeadRing count={data.currentCount} />
 
@@ -354,7 +358,6 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({ activePledge, onViewRe
                     </Typography>
                 </Box>
 
-                {/* Feedback Toast */}
                 <AnimatePresence>
                     {feedback && (
                         <motion.div
@@ -362,13 +365,9 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({ activePledge, onViewRe
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -20 }}
                             style={{
-                                position: 'absolute',
-                                bottom: 80,
-                                backgroundColor: theme.palette.primary.main,
-                                color: theme.palette.primary.contrastText,
-                                padding: '12px 32px',
-                                borderRadius: 16,
-                                boxShadow: '0 8px 32px rgba(234, 88, 12, 0.3)'
+                                position: 'absolute', bottom: 80,
+                                backgroundColor: theme.palette.primary.main, color: theme.palette.primary.contrastText,
+                                padding: '12px 32px', borderRadius: 16, boxShadow: '0 8px 32px rgba(234, 88, 12, 0.3)'
                             }}
                         >
                             <Typography variant="h6">{feedback}</Typography>
@@ -377,13 +376,12 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({ activePledge, onViewRe
                 </AnimatePresence>
             </Box>
 
+            {/* Controls */}
             <Box sx={{ p: 2, textAlign: 'center', pb: 2 }}>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, alignItems: 'center' }}>
                     {!data.session.active ? (
                         <Button
-                            variant="contained"
-                            color="primary"
-                            startIcon={<Play size={18} />}
+                            variant="contained" color="primary" startIcon={<Play size={18} />}
                             onClick={(e) => { e.stopPropagation(); handleStartSession(); }}
                             sx={{ borderRadius: 8, px: 4 }}
                         >
@@ -393,27 +391,21 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({ activePledge, onViewRe
                         <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', justifyContent: 'center' }}>
                             {data.session.paused ? (
                                 <Button
-                                    variant="contained"
-                                    color="primary"
-                                    startIcon={<Play size={18} />}
+                                    variant="contained" color="primary" startIcon={<Play size={18} />}
                                     onClick={(e) => { e.stopPropagation(); handleResumeSession(); }}
                                 >
                                     Resume
                                 </Button>
                             ) : (
                                 <Button
-                                    variant="outlined"
-                                    color="secondary"
-                                    startIcon={<Pause size={18} />}
+                                    variant="outlined" color="secondary" startIcon={<Pause size={18} />}
                                     onClick={(e) => { e.stopPropagation(); handlePauseSession(); }}
                                 >
                                     Pause
                                 </Button>
                             )}
                             <Button
-                                variant="outlined"
-                                color="error"
-                                startIcon={<RotateCw size={18} />}
+                                variant="outlined" color="error" startIcon={<RotateCw size={18} />}
                                 onClick={(e) => { e.stopPropagation(); handleResetSession(); }}
                             >
                                 Reset Session
@@ -422,8 +414,7 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({ activePledge, onViewRe
                     )}
 
                     <Button
-                        variant="contained"
-                        color="secondary"
+                        variant="contained" color="secondary"
                         onClick={(e) => { e.stopPropagation(); handleTap(); }}
                         disabled={!data.session.active || data.session.paused}
                         sx={{ borderRadius: 8, px: 4 }}
@@ -437,13 +428,10 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({ activePledge, onViewRe
                 </Box>
             </Box>
 
-            {/* iOS Haptic Workaround Elements */}
-            <div
-                style={{ opacity: 0, position: 'absolute', pointerEvents: 'none' }}
-                onClick={(e) => e.stopPropagation()}
-            >
+            {/* iOS Haptic Workaround */}
+            <div style={{ opacity: 0, position: 'absolute', pointerEvents: 'none' }} onClick={(e) => e.stopPropagation()}>
                 <input type="checkbox" id="ios-haptic-switch" style={{ display: 'none' }} />
-                {/* @ts-ignore - 'switch' attribute is non-standard but required for the hack */}
+                {/* @ts-ignore */}
                 <input type="checkbox" switch="true" id="ios-haptic-switch-trigger" style={{ display: 'none' }} />
                 <label htmlFor="ios-haptic-switch-trigger" id="ios-haptic-label">Haptic</label>
             </div>

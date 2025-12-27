@@ -114,8 +114,60 @@ JapaApp/
 ├── public/              # Static assets
 ├── firebase.json        # Firebase hosting configuration
 ├── tailwind.config.js   # TailwindCSS configuration
-└── vite.config.ts       # Vite configuration
+├── vite.config.ts       # Vite configuration
 ```
+
+## 📖 Knowledge Base
+
+For detailed technical documentation, including data schemas and architectural decisions, please refer to the [Knowledge Base](KNOWLEDGE.md).
+
+## 🔥 Firestore Schema & Security
+
+### Collections Structure
+
+*   **`users`** (Collection)
+    *   Doc ID: `{uid}`
+    *   Fields: `displayName`, `email`, `photoURL`, `stats`
+    *   **`notifications`** (Subcollection)
+        *   Read-only for owner; Write restricted (server-side only).
+
+*   **`communities`** (Collection)
+    *   Doc ID: `{communityId}`
+    *   Fields: `name`, `description`, `icon`, `isPublic` (bool), `createdAt`
+    *   **`members`** (Subcollection)
+        *   Doc ID: `{uid}`
+        *   Fields: `role` ('owner'|'admin'|'member'), `status` ('active'|'pending'|'banned'), `joinedAt`
+    *   **`posts`** (Subcollection)
+        *   Fields: `content`, `authorId`, `type` ('announcement'|'post'), `createdAt`, `deletedAt` (soft-delete)
+    *   **`chat`** (Subcollection)
+        *   Fields: `message`, `authorId`, `createdAt`, `deletedAt` (soft-delete)
+    *   **`japa_entries`** (Subcollection)
+        *   Doc ID: Auto-ID
+        *   Fields: `uid`, `count`, `date`, `createdAt`
+        *   **Security**: Create-only (Immutable). `uid` must match auth users.
+
+### Required Composite Indexes
+
+To support high-performance queries and ordering, the following indexes are required in Firestore:
+
+1.  **Community Posts by Date**:
+    *   Collection: `posts`
+    *   Fields: `communityId` (Asc), `createdAt` (Desc)
+
+2.  **Community Chat by Date**:
+    *   Collection: `chat`
+    *   Fields: `communityId` (Asc), `createdAt` (Desc)
+
+3.  **Community Members by Status/Role**:
+    *   Collection: `members`
+    *   Fields: `communityId` (Asc), `status` (Asc), `role` (Asc)
+
+4.  **Japa Entries by Date**:
+    *   Collection: `japa_entries`
+    *   Fields: `communityId` (Asc), `createdAt` (Desc)
+    *   Fields: `communityId` (Asc), `localDate` (Desc)
+
+
 
 ## 🤝 Contributing
 

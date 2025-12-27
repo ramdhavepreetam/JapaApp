@@ -17,6 +17,7 @@
     "@mui/icons-material": "^7.3.6",
     "@mui/material": "^7.3.6",
     "clsx": "^2.0.0",
+    "date-fns": "^4.1.0",
     "firebase": "^12.7.0",
     "framer-motion": "^10.16.0",
     "lucide-react": "^0.300.0",
