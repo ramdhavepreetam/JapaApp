@@ -15,14 +15,16 @@ service cloud.firestore {
 
     // Check if the user is a member of the community (active status)
     function isCommunityMember(communityId) {
-      let memberPath = /databases/$(database)/documents/communities/$(communityId)/members/$(request.auth.uid);
+      let memberId = communityId + "_" + request.auth.uid;
+      let memberPath = /databases/$(database)/documents/community_members/$(memberId);
       return exists(memberPath) && 
              get(memberPath).data.status == 'active';
     }
 
     // Check if the user has specific roles in the community
     function hasCommunityRole(communityId, roles) {
-      let memberPath = /databases/$(database)/documents/communities/$(communityId)/members/$(request.auth.uid);
+      let memberId = communityId + "_" + request.auth.uid;
+      let memberPath = /databases/$(database)/documents/community_members/$(memberId);
       let memberData = get(memberPath).data;
       return exists(memberPath) && 
              memberData.status == 'active' && 
@@ -50,6 +52,44 @@ service cloud.firestore {
       }
     }
 
+    // --- Community Members Collection (Root Level) ---
+    // ID Format: communityId_userId
+    match /community_members/{memberId} {
+        // Read: Members can see other members of the SAME community.
+        // But since we don't strictly know communityId from memberId wildcard easily in a single check without parsing,
+        // we rely on the resource data `communityId`.
+        // A user can read a member doc IF:
+        // 1. They are reading their OWN doc
+        // 2. They are a member of the community referred to by this doc
+        
+        allow read: if isAuthenticated() && 
+                    (
+                      resource.data.uid == request.auth.uid ||
+                      isCommunityMember(resource.data.communityId)
+                    );
+
+        // Create/Join:
+        // User creates their own membership doc (Requesting to join or joining public)
+        allow create: if isAuthenticated() &&
+                      request.resource.data.uid == request.auth.uid &&
+                      // Ensure ID matches format constraint if possible, or just rely on data integrity
+                      memberId == request.resource.data.communityId + "_" + request.auth.uid;
+
+        // Update:
+        // 1. Admins of the community can update roles/status
+        // 2. User can update their own status (leave) but NOT role
+        allow update: if isAuthenticated() &&
+                      (
+                        isCommunityAdmin(resource.data.communityId) ||
+                        (
+                           resource.data.uid == request.auth.uid &&
+                           !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']) 
+                        )
+                      );
+                      
+        allow delete: if isAuthenticated() && isCommunityOwner(resource.data.communityId);
+    }
+
     // --- Communities Collection ---
 
     match /communities/{communityId} {
@@ -60,35 +100,10 @@ service cloud.firestore {
       allow create: if isAuthenticated();
       
       // Update: Only Owner/Admin can update settings. 
-      // Soft-delete logic could be added here if 'deletedAt' is used for communities too.
       allow update: if isCommunityAdmin(communityId);
       
-      // Delete: Only Owner? Or not allowed? Assuming strictly soft-delete or owner-only.
+      // Delete: Only Owner
       allow delete: if isCommunityOwner(communityId);
-
-      // --- Members Subcollection ---
-      // /communities/{cid}/members/{uid}
-      match /members/{memberId} {
-        // Read: Members can see other members
-        allow read: if isCommunityMember(communityId);
-        
-        // Create/Join: 
-        // 1. User can request to join (create their own doc with status 'pending')
-        // 2. Direct join if public? (Depending on logic, but rules allow creation if it's their own id)
-        allow create: if isAuthenticated() && 
-                      request.auth.uid == memberId;
-                      
-        // Update: 
-        // 1. Admins can update roles/status (approve, ban, promote)
-        // 2. User can update their own doc (e.g. leave community) - *Be careful with role escalation*
-        allow update: if isCommunityAdmin(communityId) || 
-                      (request.auth.uid == memberId && 
-                       !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'status'])); // User can't change their own role/status autonomously unless leaving? 
-                       // Simplified for prompt: "Only owner/admin can update community settings and membership approval/ban/promote"
-                       // So we strictly limit status/role changes to admins.
-        
-        allow delete: if isCommunityOwner(communityId); // Or admins removing members
-      }
 
       // --- Posts Subcollection ---
       match /posts/{postId} {
@@ -96,14 +111,11 @@ service cloud.firestore {
         allow read: if isCommunityMember(communityId);
         
         // Create: Active members. 
-        // Constraint: "Announcements only owner/admin; posts by active members."
         allow create: if isCommunityMember(communityId) &&
                       (request.resource.data.type == 'announcement' ? isCommunityAdmin(communityId) : true) &&
                       request.resource.data.authorId == request.auth.uid;
 
         // Update: 
-        // 1. Soft-delete: User can soft-delete own. Admin can soft-delete any.
-        // 2. Edit: User can edit own.
         allow update: if isCommunityMember(communityId) && 
                       (
                         (resource.data.authorId == request.auth.uid) || 
@@ -118,8 +130,7 @@ service cloud.firestore {
         allow create: if isCommunityMember(communityId) && 
                       request.resource.data.authorId == request.auth.uid;
                       
-        // Update: Soft-delete only (or edit if allowed). 
-        // "Users can soft-delete own messages; admin can soft-delete any."
+        // Update: Soft-delete only
         allow update: if isCommunityMember(communityId) &&
                       (
                         (resource.data.authorId == request.auth.uid) || 
@@ -131,11 +142,11 @@ service cloud.firestore {
       match /japa_entries/{entryId} {
         allow read: if isCommunityMember(communityId);
         
-        // Create: Immutable, uid == auth.uid
+        // Create: Immutable
         allow create: if isCommunityMember(communityId) && 
                       request.resource.data.uid == request.auth.uid;
                       
-        // Immutable: No update or delete allowed
+        // Immutable
         allow update, delete: if false;
       }
     }

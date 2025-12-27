@@ -1,0 +1,37 @@
+{
+    "indexes": [
+        {
+            "collectionGroup": "communities",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "isPrivate",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "membersCount",
+                    "order": "DESCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "community_members",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "communityId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "status",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "joinedAt",
+                    "order": "DESCENDING"
+                }
+            ]
+        }
+    ],
+    "fieldOverrides": []
+}
