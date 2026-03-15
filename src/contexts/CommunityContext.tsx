@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Pledge, PledgeParticipant, communityService } from '../services/community';
+import { Pledge, PledgeParticipant } from '../types/pledge';
+import { communityService } from '../services/pledgeService';
 import { useAuth } from './AuthContext';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';

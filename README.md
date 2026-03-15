@@ -11,19 +11,25 @@ A modern, spiritual companion for your daily Japa meditation. This application h
     *   Visual bead ring interface.
     *   Haptic feedback and soothing sound effects.
     *   Session management (Start, Pause, Resume, Reset).
-*   **Community Pledges**:
-    *   Join collective spiritual goals.
-    *   Create and manage group pledges.
-    *   Track individual contributions to global targets.
+*   **Communities & Groups**:
+    *   **Public & Private Groups**: Create open communities or private groups for focused spiritual goals.
+    *   **Invite System**: Securely join private groups via 6-character invite codes.
+    *   **Community Features**:
+        *   **Feed**: Announcements and updates from community admins.
+        *   **Chat**: Real-time discussions with fellow members.
+        *   **Members Directory**: View and manage community participants.
+    *   **Group Counters**: Track collective progress towards shared targets (e.g., "1 Million Chants").
 *   **User Profiles**:
     *   Personal statistics and streak tracking.
     *   History of completed Malas.
     *   Authenticated experience using Firebase Auth.
-*   **Offline Support**:
-    *   Works offline and syncs progress when connectivity returns.
-    *   Local storage persistence.
+*   **Offline-First & Resilience**:
+    *   **Robust Offline Support**: Continue chanting and navigating even without internet.
+    *   **Smart Sync**: Data automatically synchronizes with the cloud when connection is restored.
+    *   **Guest Mode**: Explore features and join public communities with limited access before signing in.
 *   **Responsive Deployment**:
-    *   Optimized for both Desktop and Mobile web experiences.
+    *   Optimized for both Desktop and Mobile web experiences (PWA ready).
+
 
 ## 🛠️ Tech Stack
 

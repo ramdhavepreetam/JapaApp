@@ -1,0 +1,437 @@
+# development.toml — JapaApp Single Source of Truth
+# AI: read this file FIRST before writing any code.
+# Last updated: 2026-03-14
+
+[project]
+name = "JapaApp"
+type = "PWA"
+completion = "85%"
+stack = ["React18", "TypeScript", "Vite", "TailwindCSS", "MUI", "FramerMotion", "Firebase"]
+routing = "state-based via App.tsx — NO react-router"
+backend = "Firebase: Firestore + Auth + Hosting (serverless only)"
+offline = "resilience.ts + localStore.ts + syncService.ts"
+testing = "Vitest + React Testing Library"
+
+[project.design]
+primary    = "#F59E0B"
+secondary  = "#4338CA"
+background = "#FFFBF0"
+min_tap    = "48x48px"
+font       = "premium spiritual — no generic system fonts"
+
+[project.env]
+VITE_FIREBASE_API_KEY            = ""
+VITE_FIREBASE_AUTH_DOMAIN        = ""
+VITE_FIREBASE_PROJECT_ID         = ""
+VITE_FIREBASE_STORAGE_BUCKET     = ""
+VITE_FIREBASE_MESSAGING_SENDER_ID = ""
+VITE_FIREBASE_APP_ID             = ""
+
+# ─── MODULES ────────────────────────────────────────────────────────────────
+
+[[modules]]
+name   = "counter"
+files  = ["components/JapaCounter.tsx", "components/BeadRing.tsx"]
+status = "done"
+
+[[modules]]
+name   = "auth"
+files  = ["contexts/AuthContext.tsx", "lib/firebase.ts"]
+status = "done"
+
+[[modules]]
+name   = "community"
+files  = ["services/communityService.ts", "services/community.ts"]
+status = "done"
+warn   = "community.ts vs communityService.ts — resolve overlap (GAP-1)"
+
+[[modules]]
+name   = "community-pages"
+files  = ["components/pages/CommunityListPage.tsx", "components/pages/CommunityCreatePage.tsx", "components/pages/CommunityHomePage.tsx"]
+status = "done"
+
+[[modules]]
+name   = "community-tabs"
+files  = ["components/tabs/CommunityChatTab.tsx", "components/tabs/CommunityCounterTab.tsx", "components/tabs/CommunityFeedTab.tsx", "components/tabs/CommunityMembersTab.tsx", "components/tabs/CommunitySettingsTab.tsx"]
+status = "done"
+
+[[modules]]
+name   = "pledge"
+files  = ["components/PledgeCard.tsx", "components/PledgeForm.tsx"]
+status = "done"
+warn   = "logic intermingled in CommunityCounterTab — extract to pledgeService.ts (GAP-2)"
+
+[[modules]]
+name   = "profile"
+files  = ["components/ProfileView.tsx", "services/userService.ts"]
+status = "done"
+
+[[modules]]
+name   = "feed"
+files  = ["components/ReportView.tsx", "services/communityFeedService.ts"]
+status = "done"
+
+[[modules]]
+name   = "chat"
+files  = ["components/tabs/CommunityChatTab.tsx", "services/communityChatService.ts"]
+status = "done"
+
+[[modules]]
+name   = "notifications"
+files  = ["components/pages/NotificationsPage.tsx", "services/notificationService.ts"]
+status = "done"
+
+[[modules]]
+name   = "offline"
+files  = ["services/resilience.ts", "services/localStore.ts", "services/syncService.ts"]
+status = "done"
+
+[[modules]]
+name   = "types"
+files  = ["types/community.ts"]
+status = "partial"
+warn   = "missing: types/counter.ts, types/profile.ts, types/auth.ts, types/pledge.ts (GAP-3)"
+
+[[modules]]
+name   = "admin"
+files  = ["admin/AdminPanel.tsx", "admin/AdminUsersTab.tsx", "admin/AdminCommunitiesTab.tsx", "admin/AdminStatsTab.tsx", "services/adminService.ts"]
+status = "done"
+
+[[modules]]
+name   = "admin"
+files  = ["src/admin/AdminPanel.tsx", "src/admin/AdminUsersTab.tsx", "src/admin/AdminCommunitiesTab.tsx", "src/admin/AdminStatsTab.tsx", "src/services/adminService.ts", "src/types/admin.ts"]
+status = "not-started"
+note   = "superadmin only — lazy loaded, never bundled with main app"
+
+[[modules]]
+name   = "monetization"
+files  = ["src/services/donationService.ts", "src/components/DonateButton.tsx", "src/components/SubscribeModal.tsx", "functions/src/razorpayWebhook.ts"]
+status = "not-started"
+note   = "Phase 2 — after admin panel Phase 1 is live"
+
+# ─── FIRESTORE SCHEMA ───────────────────────────────────────────────────────
+
+[schema.users]
+uid              = "string — matches Auth UID"
+displayName      = "string"
+email            = "string"
+photoURL         = "string"
+joinedAt         = "Timestamp"
+"stats.totalMalas"    = "number"
+"stats.totalMantras"  = "number — totalMalas x 108"
+"stats.streakDays"    = "number"
+"stats.lastChantDate" = "string — YYYY-MM-DD"
+
+[schema.users]
+role           = "string — 'user' | 'community_admin' | 'superadmin'"
+status         = "string — 'active' | 'banned' | 'suspended'"
+plan           = "string — 'free' | 'pro' | 'community'"
+planExpiresAt  = "Timestamp | null"
+
+[schema.pledges]
+id           = "string"
+title        = "string"
+description  = "string"
+targetMalas  = "number"
+currentMalas = "number — BATCH WRITE ONLY via FieldValue.increment"
+participants = "number"
+creatorId    = "string"
+mantra       = "string — optional"
+
+[schema.pledge_participants]
+id                = "string — composite: pledgeId_userId"
+pledgeId          = "string"
+userId            = "string"
+contributedMalas  = "number"
+joinedAt          = "Timestamp"
+userDisplayName   = "string — cached"
+pledgeTitle       = "string — cached"
+
+[schema.reports]
+id          = "string"
+communityId = "string"
+authorId    = "string"
+content     = "string"
+createdAt   = "Timestamp"
+likes       = "number — future"
+
+[schema.chats]
+id          = "string"
+communityId = "string"
+authorId    = "string"
+message     = "string"
+createdAt   = "Timestamp"
+
+[schema.admin_logs]
+logId     = "string"
+action    = "string — AdminAction enum"
+targetId  = "string — uid or communityId"
+adminId   = "string — superadmin uid"
+reason    = "string"
+createdAt = "Timestamp"
+
+[schema.donations]
+donationId     = "string"
+userId         = "string"
+amount         = "number"
+currency       = "string — INR | USD"
+gateway        = "string — razorpay | stripe"
+gatewayOrderId = "string"
+status         = "string — pending | completed | failed"
+createdAt      = "Timestamp"
+
+
+
+# ─── ALGORITHMS (NEVER CHANGE WITHOUT ADR) ──────────────────────────────────
+
+[algo.streak]
+file  = "services/userService.ts → extract to services/streakUtils.ts"
+rule  = "ONE place only — never duplicate"
+logic = [
+  "same day      → no change",
+  "yesterday     → streakDays + 1",
+  "older / null  → reset to 1",
+  "write back    → setDoc merge:true via resilience.ts"
+]
+
+[algo.resilience]
+file      = "services/resilience.ts"
+timeout   = "5000ms"
+primary   = "Firestore call"
+fallback  = "localStore.ts (LocalStorage mock)"
+sync_key  = "japa_sync_queue"
+ls_schema = "japa_<collection>_<docId>"
+max_retry = 3
+rule      = "EVERY Firestore call goes through resilience.ts — NO direct Firestore calls"
+
+[algo.pledge_batch]
+file  = "CommunityCounterTab.tsx → extract to services/pledgeService.ts"
+rule  = "writeBatch() — both pledges.currentMalas AND pledge_participants.contributedMalas in ONE batch"
+write = "FieldValue.increment only — never read-then-write"
+
+[algo.guest_mode]
+can    = ["view public communities", "read feed", "see pledge progress", "use counter (localStore only)"]
+cannot = ["join community", "post/chat", "contribute to pledge", "view private communities"]
+guard  = "if (!currentUser) { show auth prompt; return } — consistent across ALL tabs"
+
+# ─── GAPS (fix before adding features) ──────────────────────────────────────
+
+[[gaps]]
+id       = "GAP-1"
+priority = "critical"
+what     = "community.ts vs communityService.ts overlap"
+action   = "manual — open both, consolidate, create ADR-0006"
+
+[[gaps]]
+id       = "GAP-2"
+priority = "high"
+what     = "pledge logic inside CommunityCounterTab"
+action   = "SLICE-REMAINING-01 — extract to services/pledgeService.ts"
+
+[[gaps]]
+id       = "GAP-3"
+priority = "high"
+what     = "missing type files: counter, profile, auth, pledge"
+action   = "SLICE-REMAINING-02 — create 4 type files"
+
+[[gaps]]
+id       = "GAP-4"
+priority = "medium"
+what     = "streak logic not isolated as pure function"
+action   = "SLICE-REMAINING-03 — extract to services/streakUtils.ts"
+
+[[gaps]]
+id       = "GAP-5"
+priority = "medium"
+what     = "guest mode guards may be missing in some tabs"
+action   = "SLICE-REMAINING-04 — audit and enforce"
+
+[[gaps]]
+id       = "GAP-6"
+priority = "low"
+what     = "no unit tests"
+action   = "SLICE-REMAINING-05 — Vitest foundation"
+
+[[gaps]]
+id       = "GAP-7"
+priority = "low"
+what     = "lib/storage.ts vs services/localStore.ts overlap"
+action   = "manual — open both, consolidate if needed"
+
+# ─── ADRs ────────────────────────────────────────────────────────────────────
+
+[[adrs]]
+id     = "ADR-0001"
+title  = "State-based routing — no react-router"
+status = "accepted"
+
+[[adrs]]
+id     = "ADR-0002"
+title  = "resilience.ts timeout 5s + LocalStorage key schema"
+status = "accepted"
+
+[[adrs]]
+id     = "ADR-0003"
+title  = "Pledge atomic batch write"
+status = "proposed"
+
+[[adrs]]
+id     = "ADR-0004"
+title  = "Streak calculation — optimistic client-side"
+status = "accepted"
+
+[[adrs]]
+id     = "ADR-0005"
+title  = "Guest mode — read-only no writes"
+status = "needs-audit"
+
+[[adrs]]
+id     = "ADR-0006"
+title  = "community.ts vs communityService.ts consolidation"
+status = "pending"
+
+[[adrs]]
+id     = "ADR-0007"
+title  = "Global admin role strategy — Custom Claims + Security Rules"
+status = "accepted"
+
+# ─── HARD RULES (AI must follow) ────────────────────────────────────────────
+
+[rules]
+must = [
+  "Read this file before writing any code",
+  "Every Firestore call goes through resilience.ts",
+  "Streak logic lives ONLY in streakUtils.ts",
+  "Pledge writes use writeBatch + FieldValue.increment",
+  "No module reads another module's Firestore path directly",
+  "No `any` types",
+  "No secrets — use env var placeholders only",
+  "Never rewrite working modules unless slice requires it",
+  "Never change module boundaries without an ADR"
+]
+stop_and_ask = [
+  "Firestore schema change with no ADR",
+  "Auth/guest boundary unclear",
+  "Batch write scope ambiguous",
+  "Diff exceeds 20 files or 800 LOC"
+]
+
+# ─── PROGRESS LEDGER ────────────────────────────────────────────────────────
+
+[[ledger]]
+date    = "2026-03-14"
+slice   = "Fix: Community Japa Counts Not Updating for Pledge & Individual"
+summary = "Fixed 4 interrelated bugs: stale community prop, race condition on re-fetch after transaction, missing optimistic UI update, and no parent refresh callback. Added CommunityHomePage.refreshCommunity and CommunityCounterTab.onCommunityUpdated prop. Fixed pledge mode: contribute was fire-and-forget with no context refresh — now calls refreshPledges() after contribute succeeds."
+files   = ["src/components/tabs/CommunityCounterTab.tsx", "src/components/pages/CommunityHomePage.tsx", "src/components/JapaCounter.tsx"]
+next    = "Pending GAP resolution"
+
+[[ledger]]
+date    = "2026-03-14"
+slice   = "Fix: Community Counter Sync & Display Updates"
+summary = "Wired up individual user's totalMalas to display instantly in the Community Counter Tab. Fixed local timestamp sorting for offline Japa entries in getRecentEntries. Ensured the progress bar updates immediately upon local save."
+files   = ["src/components/tabs/CommunityCounterTab.tsx", "src/services/communityJapaService.ts"]
+next    = "Pending GAP resolution"
+
+[[ledger]]
+date    = "2026-03-14"
+slice   = "Fix: Japa Session Counting & Community Streaks"
+summary = "Fixed a double-counting bug in JapaCounter's reset session logic by only submitting the leftover chant counts (mod 108) instead of the total session counts. Fixed communityJapaService transaction to calculate and update streakDays alongside lastChantDate to ensure community chants maintain the user's daily streak."
+files   = ["src/components/JapaCounter.tsx", "src/services/communityJapaService.ts"]
+next    = "Pending GAP resolution"
+
+[[ledger]]
+date    = "2026-03-14"
+slice   = "Fix: Community Double Join & Offline Data Reset"
+summary = "Added a '[DEV ONLY] Clear Local Data' button to ProfileView to allow deleting corrupted mock or offline cache data (localStorage + IndexedDB). Fixed a bug in localStore.ts where joining a community incremented membersCount even if the user was already a member."
+files   = ["src/components/ProfileView.tsx", "src/services/localStore.ts"]
+next    = "Pending GAP resolution"
+
+[[ledger]]
+date    = "2026-03-14"
+slice   = "Fix: Leave Cause in Profile"
+summary = "Fixed 'Leave Cause' bug in ProfileView. Removed redundant double window.confirm dialog (PledgeCard already has one) and explicitly called refresh() from CommunityContext after communityService.leavePledge to ensure the UI updates instantly, even in Local Demo / Mock Mode where real-time Firestore listeners are inactive."
+files   = ["src/components/ProfileView.tsx"]
+next    = "Pending GAP resolution"
+
+[[ledger]]
+date    = "2026-03-14"
+slice   = "Admin Monetization — Donations + Subscriptions"
+summary = "Added Razorpay integration for donations and subscriptions. Created donationService, AdminDonationsTab, DonateButton, and SubscribeModal. Added Cloud Functions for Razorpay webhook and order creation."
+files   = ["src/types/monetization.ts", "src/services/donationService.ts", "src/admin/AdminDonationsTab.tsx", "src/admin/AdminPanel.tsx", "src/components/DonateButton.tsx", "src/components/SubscribeModal.tsx", "functions/src/razorpayWebhook.ts", "src/services/donationService.test.ts"]
+next    = "Deploy Cloud Functions after adding environment variables."
+
+[[ledger]]
+date    = "2026-03-14"
+slice   = "Global Admin Panel — Phase 1"
+summary = "Created AdminPanel with Users, Communities, and Stats tabs. Integrated adminService for user/community management with complete audit logging. Protected route via AuthContext and App.tsx."
+files   = ["src/types/admin.ts", "src/types/auth.ts", "src/services/adminService.ts", "src/admin/AdminPanel.tsx", "src/admin/AdminUsersTab.tsx", "src/admin/AdminCommunitiesTab.tsx", "src/admin/AdminStatsTab.tsx", "src/contexts/AuthContext.tsx", "src/App.tsx"]
+next    = "PHASE 2 (Donations Tab, Subscriptions, Featured on Home) or pending GAP"
+
+[[ledger]]
+date    = "2026-03-14"
+slice   = "Mantra Display in JapaCounter"
+summary = "Added an adjustable Mantra display directly above the JapaCounter BeadRing. Introduced an optional mantra prop and bound font size mapping with A-/A+ controls to localStorage. Resolved UI clipping with Pledge Badges."
+files   = ["src/components/JapaCounter.tsx"]
+next    = "SLICE-REMAINING-01 (pledge logic extraction) or other pending gap"
+
+[[ledger]]
+date    = "2026-03-14"
+slice   = "Type Import Path Fixes"
+summary = "Resolved TS2307 import error in src/contexts/CommunityContext.tsx. Extracted Pledge types formally into types/pledge.ts and fixed the trailing imports in App.tsx, CommunityView.tsx, JapaCounter.tsx, PledgeCard.tsx, PledgeForm.tsx, and ProfileView.tsx. Conducted successful browser E2E test."
+files   = ["src/contexts/CommunityContext.tsx", "src/types/pledge.ts", "src/services/pledgeService.ts", "src/App.tsx", "src/components/CommunityView.tsx", "src/components/JapaCounter.tsx", "src/components/PledgeCard.tsx", "src/components/PledgeForm.tsx", "src/components/ProfileView.tsx"]
+next    = "SLICE-REMAINING-01 (pledge logic extraction) or other pending gap"
+
+[[ledger]]
+date    = "2026-03-14"
+slice   = "Unit Test Foundation"
+summary = "Configured Vitest with jsdom and testing library. Wrote unit tests for streakUtils, pledgeService, resilience, and syncService. Achieved 100% pass rate (19 tests). Resolves GAP-6."
+files   = ["vitest.config.ts", "src/test/setup.ts", "src/services/streakUtils.test.ts", "src/services/pledgeService.test.ts", "src/services/resilience.test.ts", "src/services/syncService.test.ts", "package.json"]
+next    = "SLICE-REMAINING-01 (pledge logic extraction) or other pending gap"
+
+[[ledger]]
+date    = "2026-03-14"
+slice   = "Guest Mode Audit & Enforcement"
+summary = "Added guest guards to CommunityChatTab, CommunityFeedTab, communityService, and pledgeService. Verified localStore guest session behavior. Resolves GAP-5."
+files   = ["components/tabs/CommunityChatTab.tsx", "components/tabs/CommunityFeedTab.tsx", "services/communityService.ts", "services/pledgeService.ts"]
+next    = "SLICE-REMAINING-01 (pledge logic extraction) or other gap resolution."
+
+[[ledger]]
+date    = "2026-03-14"
+slice   = "Streak Utility Isolation"
+summary = "Extracted streak calculation from userService.ts into pure utility streakUtils.ts. Added vitest coverage for all 4 scenarios. Resolves GAP-4."
+next    = "SLICE-REMAINING-04 (guest mode guards audit)"
+
+[[ledger]]
+date    = "2026-03-14"
+slice   = "TypeScript Type Coverage Completion"
+summary = "Created expected missing type files (types/counter.ts, types/profile.ts, types/auth.ts, types/pledge.ts) resolving GAP-3 part 1."
+next    = "SLICE-REMAINING-03 (extract streakUtils) or other implementation."
+
+[[ledger]]
+date    = "2026-03-14"
+slice   = "Audit: codebase mapped + development.toml created"
+summary = "85% complete. 7 gaps identified. Knowledge Base merged in."
+next    = "Manual GAP-1 fix → SLICE-REMAINING-02 (type files)"
+
+[[ledger]]
+date    = "2026-03-14"
+slice   = "Admin strategy brainstorm — ADR-0007 + slice prompts created"
+summary = "Defined superadmin role, admin panel Phase 1 + Phase 2 scope. Updated schema for role/status/plan on users."
+next    = "Build admin panel Phase 1 — start with types/admin.ts"
+
+[[ledger]]
+date    = "2026-03-14"
+slice   = "Fix: Japa & Pledge Data Not Persisting to Firestore"
+summary = "Fixed 4 root-cause bugs causing all writes to silently fall back to localStorage. Bug1: japa_entries was written/queried at root collection path but Firestore rules define it as a subcollection under communities/{id}/japa_entries — fixed path in communityJapaService.ts. Bug2: transaction.update(userRef) called even when userSnap.exists()===false (new users), crashing the transaction — fixed with conditional update vs set+merge. Bug3: firestore.rules community_members self-update allowed keys list was missing totalMalas/totalMantras — added them. Bug4: firestore.rules pledges update rule only permitted creatorId to update, blocking contribute() for all other participants — added allow for currentMalas-only updates by any authenticated user."
+files   = ["src/services/communityJapaService.ts", "firestore.rules"]
+next    = "Deploy updated firestore.rules: firebase deploy --only firestore:rules"
+
+# Add new entries above — newest first
+# [[ledger]]
+# date    = ""
+# slice   = ""
+# summary = ""
+# modules = []
+# files   = []
+# risks   = ""
+# next    = ""

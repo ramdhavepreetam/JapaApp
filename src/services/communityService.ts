@@ -25,6 +25,7 @@ export const communityService = {
             tags?: string[];
         }
     ): Promise<string> => {
+        if (!payload.creator?.uid) throw new Error("Requires authentication");
         return runWithFallback(
             async () => {
                 const batch = writeBatch(db);
@@ -43,7 +44,8 @@ export const communityService = {
                     membersCount: 1, // Creator is first member
                     totalMalas: 0,
                     totalMantras: 0,
-                    tags: payload.tags || []
+                    tags: payload.tags || [],
+                    inviteCode: Math.random().toString(36).substring(2, 8).toUpperCase() // 6 char alphanumeric
                 };
                 batch.set(commRef, communityData);
 
@@ -154,9 +156,26 @@ export const communityService = {
     },
 
     /**
+     * Get details of a single community member
+     */
+    getCommunityMember: async (communityId: string, uid: string): Promise<CommunityMember | null> => {
+        return runWithFallback(
+            async () => {
+                const ref = doc(db, 'community_members', `${communityId}_${uid}`);
+                const snap = await getDoc(ref);
+                return snap.exists() ? (snap.data() as CommunityMember) : null;
+            },
+            async () => {
+                return localStore.getMember(communityId, uid);
+            },
+            "Get Community Member"
+        );
+    },
+
+    /**
      * Get communities the user is a member of
      */
-    getMyCommunities: async (uid: string): Promise<{ communityId: string, role: UserRole }[]> => {
+    getMyCommunities: async (uid: string): Promise<CommunityMember[]> => {
         return runWithFallback(
             async () => {
                 const q = query(
@@ -165,15 +184,19 @@ export const communityService = {
                     where('status', '==', 'active')
                 );
                 const snapshot = await getDocs(q);
-                return snapshot.docs.map(d => {
-                    const data = d.data() as CommunityMember;
-                    return { communityId: data.communityId, role: data.role };
-                });
+                return snapshot.docs.map(d => d.data() as CommunityMember);
             },
             async () => {
                 const data = localStore.getMyCommunities(uid);
-                // Cast string role to UserRole if needed safe cast
-                return data.map(d => ({ ...d, role: d.role as UserRole }));
+                return data.map(d => ({
+                    uid: uid,
+                    communityId: d.communityId,
+                    role: d.role as UserRole,
+                    joinedAt: Timestamp.now(),
+                    totalMalas: 0,
+                    totalMantras: 0,
+                    status: 'active'
+                }));
             },
             "Get My Communities"
         );
@@ -183,6 +206,7 @@ export const communityService = {
      * Join an open community immediately
      */
     joinCommunityOpen: async (communityId: string, userProfile: UserProfileSummary): Promise<void> => {
+        if (!userProfile?.uid) throw new Error("Requires authentication");
         return runWithFallback(
             async () => {
                 const commRef = doc(db, 'communities', communityId);
@@ -239,6 +263,7 @@ export const communityService = {
      * Request to join a community
      */
     requestJoinCommunity: async (communityId: string, userProfile: UserProfileSummary): Promise<void> => {
+        if (!userProfile?.uid) throw new Error("Requires authentication");
         const commRef = doc(db, 'communities', communityId);
         const commSnap = await getDoc(commRef);
         if (!commSnap.exists()) throw new Error("Community not found");
@@ -267,15 +292,25 @@ export const communityService = {
     /**
      * Join with Invite Code
      */
-    joinWithInviteCode: async (communityId: string, inviteCode: string, userProfile: UserProfileSummary): Promise<void> => {
-        const commRef = doc(db, 'communities', communityId);
-        const commSnap = await getDoc(commRef);
-        if (!commSnap.exists()) throw new Error("Community not found");
+    /**
+     * Join with Invite Code
+     */
+    joinWithInviteCode: async (inviteCode: string, userProfile: UserProfileSummary): Promise<void> => {
+        if (!userProfile?.uid) throw new Error("Requires authentication");
+        // Find community by invite code using specific index or query
+        const q = query(
+            collection(db, 'communities'),
+            where('inviteCode', '==', inviteCode),
+            limit(1)
+        );
+        const snapshot = await getDocs(q);
 
-        const comm = commSnap.data() as Community;
-        if (comm.inviteCode !== inviteCode) {
-            throw new Error("Invalid invite code.");
+        if (snapshot.empty) {
+            throw new Error("Invalid invite code");
         }
+
+        const commDoc = snapshot.docs[0];
+        const communityId = commDoc.id;
 
         // Proceed to join directly (bypass approval)
         const memberId = `${communityId}_${userProfile.uid}`;
@@ -283,7 +318,11 @@ export const communityService = {
 
         // Check ban/existing logic...
         const memberSnap = await getDoc(memberRef);
-        if (memberSnap.exists() && memberSnap.data()?.status === 'banned') throw new Error("Banned.");
+        if (memberSnap.exists()) {
+            const status = memberSnap.data()?.status;
+            if (status === 'banned') throw new Error("Banned from this community");
+            if (status === 'active') throw new Error("Already a member");
+        }
 
         const batch = writeBatch(db);
         batch.set(memberRef, {
@@ -295,9 +334,10 @@ export const communityService = {
             totalMantras: 0,
             status: 'active'
         });
-        // If not already member, increment
+
+        // If not already member (or rejoined), increment
         if (!memberSnap.exists() || memberSnap.data()?.status !== 'active') {
-            batch.update(commRef, { membersCount: increment(1) });
+            batch.update(commDoc.ref, { membersCount: increment(1) });
         }
         await batch.commit();
     },
@@ -306,6 +346,7 @@ export const communityService = {
      * Approve a join request
      */
     approveMember: async (communityId: string, memberUid: string, _adminUid: string): Promise<void> => {
+        if (!_adminUid) throw new Error("Requires authentication");
         // ideally verify admin role here or via firestore rules. 
         // We will assume UI checks but enforcing via rules is best.
 
@@ -343,6 +384,8 @@ export const communityService = {
      * Reject a join request
      */
     rejectMember: async (communityId: string, memberUid: string): Promise<void> => {
+        // Assume admin check happens downstream via rules or caller, but ensuring at least caller is auth'd usually needs another arg.
+        // For now, leaving as is since signature doesn't take adminUid. 
         const reqRef = doc(db, 'community_join_requests', `${communityId}_${memberUid}`);
         await updateDoc(reqRef, { status: 'rejected' });
         // Or delete
@@ -352,6 +395,7 @@ export const communityService = {
      * Leave a community
      */
     leaveCommunity: async (communityId: string, uid: string): Promise<void> => {
+        if (!uid) throw new Error("Requires authentication");
         const memberRef = doc(db, 'community_members', `${communityId}_${uid}`);
         const commRef = doc(db, 'communities', communityId);
 
@@ -373,6 +417,7 @@ export const communityService = {
      * Update Member Role
      */
     updateMemberRole: async (communityId: string, memberUid: string, newRole: UserRole): Promise<void> => {
+        // Assume admin auth check is handled in caller layer or rules, as signature lacks admin param.
         const memberRef = doc(db, 'community_members', `${communityId}_${memberUid}`);
         await updateDoc(memberRef, { role: newRole });
     },
@@ -381,6 +426,7 @@ export const communityService = {
      * Remove or Ban Member
      */
     removeOrBanMember: async (communityId: string, memberUid: string, action: 'remove' | 'ban'): Promise<void> => {
+        // Assuming admin auth check handled in caller/rules.
         const memberRef = doc(db, 'community_members', `${communityId}_${memberUid}`);
         const commRef = doc(db, 'communities', communityId);
 
@@ -425,28 +471,27 @@ export const communityService = {
      * Get pending join requests
      */
     getJoinRequests: async (communityId: string): Promise<JoinRequest[]> => {
-        return runWithFallback(
-            async () => {
-                const q = query(
-                    collection(db, 'community_join_requests'),
-                    where('communityId', '==', communityId),
-                    where('status', '==', 'pending'),
-                    orderBy('requestedAt', 'desc')
-                );
-                const snapshot = await getDocs(q);
-                return snapshot.docs.map(d => d.data() as JoinRequest);
-            },
-            async () => {
-                return [];
-            },
-            "Get Join Requests"
-        );
+        try {
+            const q = query(
+                collection(db, 'community_join_requests'),
+                where('communityId', '==', communityId),
+                where('status', '==', 'pending'),
+                orderBy('requestedAt', 'desc')
+            );
+            const snapshot = await getDocs(q);
+            return snapshot.docs.map(d => d.data() as JoinRequest);
+        } catch (e) {
+            console.warn("Failed to get join requests", e);
+            // Do NOT trigger global fallback for permission errors here
+            return [];
+        }
     },
 
     /**
      * Update Community Settings
      */
     updateCommunity: async (communityId: string, updates: Partial<Community>): Promise<void> => {
+        // Assuming admin auth check handled upstream.
         const ref = doc(db, 'communities', communityId);
         await updateDoc(ref, updates);
     },

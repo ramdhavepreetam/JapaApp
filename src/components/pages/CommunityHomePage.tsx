@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
     Box, AppBar, Toolbar, IconButton, Typography, Tabs, Tab,
-    CircularProgress
+    CircularProgress, Button
 } from '@mui/material';
 import { ArrowLeft, MessageSquare, List as ListIcon, Settings as SettingsIcon, Target, Users } from 'lucide-react';
 import { communityService } from '../../services/communityService';
@@ -25,19 +25,30 @@ export const CommunityHomePage: React.FC<CommunityHomePageProps> = ({ communityI
     const [community, setCommunity] = useState<Community | null>(null);
     const [myRole, setMyRole] = useState<UserRole | undefined>(undefined);
     const [tab, setTab] = useState(0); // 0: Feed, 1: Chat, 2: Counter, 3: Members, 4: Settings
+
+    // Re-fetch community data (called after japa save to update totals)
+    const refreshCommunity = async () => {
+        try {
+            const c = await communityService.getCommunity(communityId);
+            if (c) setCommunity(c);
+        } catch (e) {
+            console.warn('Failed to refresh community data', e);
+        }
+    };
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        let isMounted = true;
         const load = async () => {
             try {
                 const c = await communityService.getCommunity(communityId);
-                setCommunity(c);
+                if (isMounted) setCommunity(c);
 
                 if (user) {
                     // Check membership directly
                     const memRef = doc(db, 'community_members', `${communityId}_${user.uid}`);
                     const memSnap = await getDoc(memRef);
-                    if (memSnap.exists()) {
+                    if (memSnap.exists() && isMounted) {
                         const data = memSnap.data() as CommunityMember;
                         if (data.status === 'active') {
                             setMyRole(data.role);
@@ -47,10 +58,11 @@ export const CommunityHomePage: React.FC<CommunityHomePageProps> = ({ communityI
             } catch (e) {
                 console.error(e);
             } finally {
-                setLoading(false);
+                if (isMounted) setLoading(false);
             }
         };
         load();
+        return () => { isMounted = false; };
     }, [communityId, user]);
 
     if (loading || !community) {
@@ -60,9 +72,106 @@ export const CommunityHomePage: React.FC<CommunityHomePageProps> = ({ communityI
             </Box>
         );
     }
-
     const isAdmin = myRole === 'admin' || myRole === 'owner';
 
+    const handleJoin = async () => {
+        if (!community) return;
+
+        if (!user) {
+            alert("Please sign in to join a community.");
+            return;
+        }
+
+        setLoading(true);
+        try {
+            if (community.isPrivate || community.requiresApproval) {
+                await communityService.requestJoinCommunity(community.id, {
+                    uid: user.uid,
+                    displayName: user.displayName || 'User',
+                    photoURL: user.photoURL || ''
+                });
+                alert("Request sent successfully!");
+            } else {
+                await communityService.joinCommunityOpen(community.id, {
+                    uid: user.uid,
+                    displayName: user.displayName || 'User',
+                    photoURL: user.photoURL || ''
+                });
+                // Reload page or state to show tabs
+                window.location.reload();
+            }
+        } catch (e: any) {
+            console.error(e);
+            alert(e.message || "Failed to join");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // If not a member, show Preview/Join View
+    if (!myRole) {
+        return (
+            <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
+                <AppBar position="sticky" color="default" elevation={0}>
+                    <Toolbar>
+                        <IconButton edge="start" onClick={onBack} sx={{ mr: 1 }}>
+                            <ArrowLeft />
+                        </IconButton>
+                        <Typography variant="h6" sx={{ flexGrow: 1 }}>
+                            Join Community
+                        </Typography>
+                    </Toolbar>
+                </AppBar>
+
+                <Box sx={{ p: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+                    <Box
+                        sx={{
+                            width: 120, height: 120, borderRadius: 4, bgcolor: 'primary.light',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 3,
+                            color: 'primary.main'
+                        }}
+                    >
+                        {community.imageUrl ? (
+                            <img src={community.imageUrl} alt={community.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit' }} />
+                        ) : (
+                            <Target size={64} />
+                        )}
+                    </Box>
+
+                    <Typography variant="h4" fontWeight="bold" gutterBottom>
+                        {community.name}
+                    </Typography>
+
+                    <Typography variant="body1" color="text.secondary" sx={{ mb: 4, maxWidth: 400 }}>
+                        {community.description || "No description provided."}
+                    </Typography>
+
+                    <Box sx={{ display: 'flex', gap: 4, mb: 6 }}>
+                        <Box>
+                            <Typography variant="h6" fontWeight="bold">{community.membersCount}</Typography>
+                            <Typography variant="caption" color="text.secondary">Members</Typography>
+                        </Box>
+                        <Box>
+                            <Typography variant="h6" fontWeight="bold">{community.totalMalas}</Typography>
+                            <Typography variant="caption" color="text.secondary">Total Malas</Typography>
+                        </Box>
+                    </Box>
+
+                    <Button
+                        variant="contained"
+                        size="large"
+                        fullWidth
+                        sx={{ borderRadius: 8, height: 56, maxWidth: 300, fontSize: '1.1rem' }}
+                        onClick={handleJoin}
+                    >
+                        {community.requiresApproval || community.isPrivate ? "Request to Join" : "Join Community"}
+                    </Button>
+                </Box>
+            </Box>
+        );
+    }
+
+    // Existing render for members...
     return (
         <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
             <AppBar position="sticky" color="default" elevation={1}>
@@ -78,8 +187,6 @@ export const CommunityHomePage: React.FC<CommunityHomePageProps> = ({ communityI
                             {community.membersCount} members
                         </Typography>
                     </Box>
-                    {/* Settings shorthand or just use tab? Using Tab for cleaner mobile UX usually, or icon. 
-                        User prompt said "Settings Tab". I will put it in the Tabs list if Admin. */}
                 </Toolbar>
                 <Tabs
                     value={tab}
@@ -104,6 +211,7 @@ export const CommunityHomePage: React.FC<CommunityHomePageProps> = ({ communityI
                     <CommunityCounterTab
                         community={community}
                         onViewReport={() => { }}
+                        onCommunityUpdated={refreshCommunity}
                     />
                 )}
                 {tab === 3 && <CommunityMembersTab communityId={communityId} currentUserRole={myRole} />}

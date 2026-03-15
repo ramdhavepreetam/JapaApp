@@ -9,31 +9,71 @@ import { Clock, Zap } from 'lucide-react';
 interface CommunityCounterTabProps {
     community: Community;
     onViewReport: () => void;
+    onCommunityUpdated?: () => void;
 }
 
-export const CommunityCounterTab: React.FC<CommunityCounterTabProps> = ({ community, onViewReport }) => {
+export const CommunityCounterTab: React.FC<CommunityCounterTabProps> = ({ community, onViewReport, onCommunityUpdated }) => {
     const { user } = useAuth();
     const [recentEntries, setRecentEntries] = useState<JapaEntry[]>([]);
+    const [localTotalMalas, setLocalTotalMalas] = useState(community.totalMalas);
+    const [myContribution, setMyContribution] = useState<number>(0);
 
-    // Refresh entries on mount and after save
-    const refreshEntries = () => {
+    // Refresh only the feed (safe to poll quickly)
+    const refreshFeed = () => {
         communityJapaService.getRecentEntries(community.id).then(setRecentEntries);
     };
 
-    useEffect(() => {
-        refreshEntries();
-        // Poll every 30s for updates? Or just leave it as manual refresh on action
-        const interval = setInterval(refreshEntries, 30000);
-        return () => clearInterval(interval);
-    }, [community.id]);
+    // Fetch my specific contribution efficiently via resilient service ONCE, to avoid stale transaction reads
+    const fetchMyContribution = () => {
+        if (user) {
+            import('../../services/communityService').then(({ communityService }) => {
+                communityService.getCommunityMember(community.id, user.uid).then(member => {
+                    if (member) {
+                        setMyContribution(member.totalMalas || 0);
+                    }
+                });
+            });
+        }
+    };
 
-    const handleSaved = () => {
-        refreshEntries();
+    useEffect(() => {
+        refreshFeed();
+        fetchMyContribution();
+        // Poll every 30s for feed updates
+        const interval = setInterval(refreshFeed, 30000);
+        return () => clearInterval(interval);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [community.id, user]);
+
+    // Sync localTotalMalas when parent re-renders with updated community data
+    useEffect(() => {
+        setLocalTotalMalas(community.totalMalas);
+    }, [community.totalMalas]);
+
+    const handleSaved = (malas: number, _mantras: number) => {
+        // 1. Optimistic UI update — instant feedback
+        setLocalTotalMalas(prev => prev + malas);
+        setMyContribution(prev => prev + malas);
+
+        // 2. Delayed re-fetch to confirm real values after transaction/mock settles
+        setTimeout(() => {
+            refreshFeed();
+            fetchMyContribution();
+            if (community.id) {
+                import('../../services/communityService').then(({ communityService }) => {
+                    communityService.getCommunity(community.id).then(c => {
+                        if (c) setLocalTotalMalas(c.totalMalas);
+                    });
+                });
+            }
+            // Notify parent to refresh its community state too
+            onCommunityUpdated?.();
+        }, 500);
     };
 
     // Calculate progress (arbitrary goal for now? 1M? or infinite)
     const goal = 1000000;
-    const progress = Math.min(100, (community.totalMalas / goal) * 100);
+    const progress = Math.min(100, (localTotalMalas / goal) * 100);
 
     return (
         <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
@@ -41,14 +81,19 @@ export const CommunityCounterTab: React.FC<CommunityCounterTabProps> = ({ commun
             {/* Top Stats Bar */}
             <Box sx={{ p: 2, bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider', display: 'flex', gap: 2, alignItems: 'center' }}>
                 <Box sx={{ flex: 1 }}>
-                    <Typography variant="overline" color="text.secondary" fontWeight="bold">Community Goal</Typography>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', mb: 0.5 }}>
+                        <Typography variant="overline" color="text.secondary" fontWeight="bold" sx={{ lineHeight: 1 }}>Community Goal</Typography>
+                        <Typography variant="caption" sx={{ fontWeight: 600, color: 'primary.dark', bgcolor: 'primary.light', px: 1, py: 0.25, borderRadius: 1 }}>
+                            My Total: {myContribution.toLocaleString()}
+                        </Typography>
+                    </Box>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <LinearProgress variant="determinate" value={progress} sx={{ flex: 1, height: 10, borderRadius: 5 }} />
                         <Typography variant="caption" fontWeight="bold">{progress.toFixed(1)}%</Typography>
                     </Box>
                     <Typography variant="body2" sx={{ mt: 0.5 }}>
                         <Zap size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} />
-                        {community.totalMalas.toLocaleString()} / {goal.toLocaleString()} Malas
+                        {localTotalMalas.toLocaleString()} / {goal.toLocaleString()} Malas
                     </Typography>
                 </Box>
             </Box>
@@ -91,7 +136,13 @@ export const CommunityCounterTab: React.FC<CommunityCounterTabProps> = ({ commun
                                     }
                                     secondary={
                                         <Typography variant="caption" color="text.secondary">
-                                            {new Date((entry.timestamp as any).seconds * 1000).toLocaleTimeString()}
+                                            {new Date(
+                                                (entry as any).queuedAt
+                                                    ? (entry as any).queuedAt
+                                                    : (entry.timestamp as any)?.seconds
+                                                        ? (entry.timestamp as any).seconds * 1000
+                                                        : Date.now()
+                                            ).toLocaleTimeString()}
                                         </Typography>
                                     }
                                 />

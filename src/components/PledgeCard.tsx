@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pledge } from '../services/community';
+import { Pledge } from '../types/pledge';
 import { Users, Target, Edit2, Trash2 } from 'lucide-react';
 import { Card, CardContent, Typography, Button, Box, LinearProgress, Chip, IconButton, Tooltip } from '@mui/material';
 

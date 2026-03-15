@@ -19,18 +19,18 @@ export const communityChatApi = {
     ): Promise<string> => {
         const messagesRef = collection(db, 'communities', communityId, 'chat_messages');
 
-        const newMessage: Omit<ChatMessage, 'id'> = {
+        const newMessage: any = {
             communityId,
             senderId: sender.uid,
             senderName: sender.displayName,
             senderPhotoURL: sender.photoURL,
             content,
-            createdAt: serverTimestamp() as Timestamp,
+            createdAt: serverTimestamp(),
             likes: [],
             clientId: clientId || '',
-            replyToId,
             isDeleted: false
         };
+        if (replyToId) newMessage.replyToId = replyToId;
 
         const docRef = await addDoc(messagesRef, newMessage);
         return docRef.id;
@@ -99,7 +99,7 @@ export const communityChatService = {
                 const tempId = clientId || `temp_${Date.now()}`;
 
                 // Construct basic message for local display
-                const newMessage: Omit<ChatMessage, 'id'> = {
+                const newMessage: any = {
                     communityId,
                     senderId: sender.uid,
                     senderName: sender.displayName,
@@ -108,9 +108,9 @@ export const communityChatService = {
                     createdAt: Timestamp.now(), // Local time
                     likes: [],
                     clientId: tempId,
-                    replyToId,
                     isDeleted: false
                 };
+                if (replyToId) newMessage.replyToId = replyToId;
 
                 localStore.queueChatMessage(newMessage, tempId);
                 return tempId;

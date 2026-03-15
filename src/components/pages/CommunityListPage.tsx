@@ -13,9 +13,13 @@ import {
     Fab,
     Stack
 } from '@mui/material';
-import { Search, Plus, Users, Shield, Globe2 } from 'lucide-react';
+import { Search, Plus, Users, Shield, Globe2, Ticket } from 'lucide-react';
+import {
+    Dialog, DialogTitle, DialogContent, DialogActions, DialogContentText
+} from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
 import { communityService } from '../../services/communityService';
+import { notificationService } from '../../services/notificationService';
 import { useAuth } from '../../contexts/AuthContext';
 import { Community } from '../../types/community';
 
@@ -28,7 +32,13 @@ export const CommunityListPage: React.FC<CommunityListPageProps> = ({ onNavigate
     const [tab, setTab] = useState(0);
     const [search, setSearch] = useState('');
 
+    // Invite Dialog State
+    const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+    const [inviteCode, setInviteCode] = useState('');
+    const [joining, setJoining] = useState(false);
+
     const [myCommunities, setMyCommunities] = useState<Community[]>([]);
+    const [unreadMap, setUnreadMap] = useState<Record<string, boolean>>({});
     const [discoverCommunities, setDiscoverCommunities] = useState<Community[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -43,6 +53,20 @@ export const CommunityListPage: React.FC<CommunityListPageProps> = ({ onNavigate
                         members.map(m => communityService.getCommunity(m.communityId))
                     );
                     setMyCommunities(details.filter(c => c !== null) as Community[]);
+
+                    // Check for unread announcements
+                    const newUnreadMap: Record<string, boolean> = {};
+                    await Promise.all(members.map(async (m) => {
+                        const latestTime = await notificationService.getLatestAnnouncementTime(m.communityId);
+                        if (latestTime) {
+                            // If lastRead is null/undefined, effectively unread if announcement exists
+                            const lastRead = m.lastReadAnnouncementsAt; // Type updated in communityService
+                            if (!lastRead || latestTime.toMillis() > lastRead.toMillis()) {
+                                newUnreadMap[m.communityId] = true;
+                            }
+                        }
+                    }));
+                    setUnreadMap(newUnreadMap);
                 }
 
                 // Initial Discovery (No search)
@@ -85,6 +109,38 @@ export const CommunityListPage: React.FC<CommunityListPageProps> = ({ onNavigate
         onNavigate('community-create');
     };
 
+
+    const handleJoinWithCode = async () => {
+        if (!inviteCode.trim()) return;
+
+        if (!user) {
+            alert("Please sign in to join a community.");
+            return;
+        }
+
+        setJoining(true);
+        try {
+            await communityService.joinWithInviteCode(inviteCode.trim(), {
+                uid: user.uid,
+                displayName: user.displayName || 'User',
+                photoURL: user.photoURL || ''
+            });
+            setInviteDialogOpen(false);
+            setInviteCode('');
+            // Reload user communities
+            const members = await communityService.getMyCommunities(user.uid);
+            const details = await Promise.all(
+                members.map(m => communityService.getCommunity(m.communityId))
+            );
+            setMyCommunities(details.filter(c => c !== null) as Community[]);
+            setTab(0); // Go to My Communities
+        } catch (e: any) {
+            alert(e.message || "Failed to join");
+        } finally {
+            setJoining(false);
+        }
+    };
+
     // Client-side filter for My Communities only
     const filteredMy = myCommunities.filter(c =>
         c.name.toLowerCase().includes(search.toLowerCase())
@@ -97,9 +153,18 @@ export const CommunityListPage: React.FC<CommunityListPageProps> = ({ onNavigate
         <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
             {/* Header */}
             <Box sx={{ p: 2, bgcolor: 'background.paper', position: 'sticky', top: 0, zIndex: 10, boxShadow: 1 }}>
-                <Typography variant="h5" fontWeight="bold" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+
+                <Typography variant="h5" fontWeight="bold" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1, flexGrow: 1 }}>
                     <Users className="text-orange-600" /> Communities
                 </Typography>
+                <Button
+                    size="small"
+                    startIcon={<Ticket size={16} />}
+                    onClick={() => setInviteDialogOpen(true)}
+                    sx={{ position: 'absolute', right: 16, top: 16 }}
+                >
+                    Have a code?
+                </Button>
 
                 <TextField
                     fullWidth
@@ -146,6 +211,7 @@ export const CommunityListPage: React.FC<CommunityListPageProps> = ({ onNavigate
                                         community={community}
                                         onClick={() => onNavigate('community-home', community.id)}
                                         isJoined={tab === 0}
+                                        hasUnread={unreadMap[community.id] || false}
                                     />
                                 ))}
 
@@ -172,11 +238,37 @@ export const CommunityListPage: React.FC<CommunityListPageProps> = ({ onNavigate
                     <Plus />
                 </Fab>
             )}
+
+            {/* Invite Code Dialog */}
+            <Dialog open={inviteDialogOpen} onClose={() => setInviteDialogOpen(false)}>
+                <DialogTitle>Join with Invite Code</DialogTitle>
+                <DialogContent>
+                    <DialogContentText sx={{ mb: 2 }}>
+                        Enter the 6-character code shared by the community admin.
+                    </DialogContentText>
+                    <TextField
+                        autoFocus
+                        margin="dense"
+                        label="Invite Code"
+                        fullWidth
+                        variant="outlined"
+                        value={inviteCode}
+                        onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                        inputProps={{ maxLength: 6, style: { fontFamily: 'monospace', letterSpacing: 4, textAlign: 'center' } }}
+                    />
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setInviteDialogOpen(false)}>Cancel</Button>
+                    <Button onClick={handleJoinWithCode} variant="contained" disabled={joining || inviteCode.length < 3}>
+                        {joining ? "Joining..." : "Join Community"}
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 };
 
-const CommunityCard: React.FC<{ community: Community, onClick: () => void, isJoined: boolean }> = ({ community, onClick, isJoined }) => {
+const CommunityCard: React.FC<{ community: Community, onClick: () => void, isJoined: boolean, hasUnread?: boolean }> = ({ community, onClick, isJoined, hasUnread }) => {
     return (
         <Card
             onClick={onClick}
@@ -197,9 +289,23 @@ const CommunityCard: React.FC<{ community: Community, onClick: () => void, isJoi
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: 'primary.dark'
+                    color: 'primary.dark',
+                    position: 'relative'
                 }}
             >
+                {hasUnread && (
+                    <Box sx={{
+                        position: 'absolute',
+                        top: 8,
+                        right: 8,
+                        width: 10,
+                        height: 10,
+                        bgcolor: 'error.main',
+                        borderRadius: '50%',
+                        zIndex: 2,
+                        border: '2px solid white'
+                    }} />
+                )}
                 {community.imageUrl ? (
                     <img src={community.imageUrl} alt={community.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (

@@ -8,15 +8,23 @@ import { CommunityListPage } from './components/pages/CommunityListPage';
 import { CommunityCreatePage } from './components/pages/CommunityCreatePage';
 import { CommunityHomePage } from './components/pages/CommunityHomePage';
 import { NotificationsPage } from './components/pages/NotificationsPage';
-import { Globe2, Home, User, Users, Bell } from 'lucide-react';
-import { Pledge } from './services/community';
+import { Globe2, Home, User, Users, Bell, Shield } from 'lucide-react';
+import { Pledge } from './types/pledge';
 import { Box, Paper, BottomNavigation, BottomNavigationAction, IconButton, Badge } from '@mui/material';
 import { CommunityProvider } from './contexts/CommunityContext';
+import { useAuth } from './contexts/AuthContext';
+
+// Lazy load admin
+import { lazy, Suspense } from 'react';
+const AdminPanel = lazy(() => import('./admin/AdminPanel').then(m => ({ default: m.AdminPanel })));
 
 
 function App() {
+    // Auth
+    const { authUser } = useAuth();
+    
     // Extended View State
-    const [view, setView] = useState<'counter' | 'report' | 'pledges' | 'communities' | 'profile' | 'community-create' | 'community-home' | 'notifications'>('counter');
+    const [view, setView] = useState<'counter' | 'report' | 'pledges' | 'communities' | 'profile' | 'community-create' | 'community-home' | 'notifications' | 'admin'>('counter');
     const [activePledge, setActivePledge] = useState<Pledge | null>(null);
     const [activeCommunityId, setActiveCommunityId] = useState<string | null>(null);
 
@@ -32,6 +40,11 @@ function App() {
         if (newView === 'community-home' && param) {
             setActiveCommunityId(param);
         }
+        if (newView === 'admin' && authUser?.role !== 'superadmin') {
+            console.warn("Unauthorized access to admin panel");
+            setView('counter');
+            return;
+        }
         setView(newView);
     };
 
@@ -43,6 +56,7 @@ function App() {
         if (['pledges'].includes(view)) return 'pledges'; // Old Community View
         if (['communities', 'community-create', 'community-home'].includes(view)) return 'communities';
         if (view === 'profile') return 'profile';
+        if (view === 'admin') return 'admin';
         return 'counter';
     };
 
@@ -188,6 +202,21 @@ function App() {
                                 />
                             </motion.div>
                         )}
+
+                        {view === 'admin' && authUser?.role === 'superadmin' && (
+                            <motion.div
+                                key="admin"
+                                initial={{ y: '100%' }}
+                                animate={{ y: 0 }}
+                                exit={{ y: '100%' }}
+                                transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                                style={{ width: '100%', height: '100%', position: 'absolute', top: 0, zIndex: 100, backgroundColor: 'white' }}
+                            >
+                                <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>Loading Admin...</Box>}>
+                                    <AdminPanel onBack={() => setView('profile')} />
+                                </Suspense>
+                            </motion.div>
+                        )}
                     </AnimatePresence>
                 </Box>
 
@@ -198,7 +227,7 @@ function App() {
                             showLabels
                             value={getNavValue()}
                             onChange={(_event, newValue) => {
-                                setView(newValue);
+                                handleNavigate(newValue);
                             }}
                             sx={{ height: 80, pb: 2 }}
                         >
@@ -206,6 +235,9 @@ function App() {
                             <BottomNavigationAction label="Pledges" value="pledges" icon={<Globe2 />} />
                             <BottomNavigationAction label="Groups" value="communities" icon={<Users />} />
                             <BottomNavigationAction label="Profile" value="profile" icon={<User />} />
+                            {authUser?.role === 'superadmin' && (
+                                <BottomNavigationAction label="Admin" value="admin" icon={<Shield />} />
+                            )}
                         </BottomNavigation>
                     </Paper>
                 )}

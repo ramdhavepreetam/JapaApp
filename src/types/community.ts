@@ -35,6 +35,8 @@ export interface CommunityMember {
     totalMalas: number; // Contributed to this community
     totalMantras: number;
     status: 'active' | 'banned' | 'left';
+    lastReadAnnouncementsAt?: Timestamp;
+    lastReadChatAt?: Timestamp;
 }
 
 export interface JoinRequest {

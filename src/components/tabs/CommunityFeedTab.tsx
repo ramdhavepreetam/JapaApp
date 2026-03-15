@@ -76,43 +76,45 @@ export const CommunityFeedTab: React.FC<CommunityFeedTabProps> = ({ communityId,
 
     return (
         <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: '#f5f5f5' }}>
-            <Box sx={{ p: 2, bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider' }}>
-                <Stack direction="row" spacing={2} alignItems="flex-start">
-                    <Avatar src={user?.photoURL || undefined} />
-                    <Box sx={{ flex: 1 }}>
-                        <TextField
-                            fullWidth
-                            multiline
-                            maxRows={4}
-                            placeholder="Share something with the community..."
-                            value={content}
-                            onChange={(e) => setContent(e.target.value)}
-                            variant="standard"
-                            InputProps={{ disableUnderline: true }}
-                        />
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}>
-                            {isAdminOrOwner && (
-                                <FormControlLabel
-                                    control={<Switch size="small" checked={isAnnouncement} onChange={(e) => setIsAnnouncement(e.target.checked)} />}
-                                    label={<Typography variant="caption" fontWeight="bold" color="primary">Announcement</Typography>}
-                                />
-                            )}
-                            <Box sx={{ ml: 'auto' }}>
-                                <Button
-                                    variant="contained"
-                                    size="small"
-                                    endIcon={<Send size={16} />}
-                                    disabled={!content.trim() || sending}
-                                    onClick={handleCreatePost}
-                                    sx={{ borderRadius: 4, textTransform: 'none' }}
-                                >
-                                    Post
-                                </Button>
+            {user && (
+                <Box sx={{ p: 2, bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider' }}>
+                    <Stack direction="row" spacing={2} alignItems="flex-start">
+                        <Avatar src={user?.photoURL || undefined} />
+                        <Box sx={{ flex: 1 }}>
+                            <TextField
+                                fullWidth
+                                multiline
+                                maxRows={4}
+                                placeholder="Share something with the community..."
+                                value={content}
+                                onChange={(e) => setContent(e.target.value)}
+                                variant="standard"
+                                InputProps={{ disableUnderline: true }}
+                            />
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}>
+                                {isAdminOrOwner && (
+                                    <FormControlLabel
+                                        control={<Switch size="small" checked={isAnnouncement} onChange={(e) => setIsAnnouncement(e.target.checked)} />}
+                                        label={<Typography variant="caption" fontWeight="bold" color="primary">Announcement</Typography>}
+                                    />
+                                )}
+                                <Box sx={{ ml: 'auto' }}>
+                                    <Button
+                                        variant="contained"
+                                        size="small"
+                                        endIcon={<Send size={16} />}
+                                        disabled={!content.trim() || sending}
+                                        onClick={handleCreatePost}
+                                        sx={{ borderRadius: 4, textTransform: 'none' }}
+                                    >
+                                        Post
+                                    </Button>
+                                </Box>
                             </Box>
                         </Box>
-                    </Box>
-                </Stack>
-            </Box>
+                    </Stack>
+                </Box>
+            )}
 
             <Box sx={{ flex: 1, overflowY: 'auto', p: 2 }}>
                 {loading ? (

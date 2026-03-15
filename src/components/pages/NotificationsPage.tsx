@@ -5,6 +5,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { notificationService } from '../../services/notificationService';
 import { Notification } from '../../types/community';
 
+import { communityService } from '../../services/communityService';
+
 interface NotificationsPageProps {
     onBack: () => void;
     onNavigate: (view: any, params?: any) => void;
@@ -16,12 +18,20 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onBack }) 
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        if (user) {
-            notificationService.listNotifications(user.uid)
-                .then(setNotifications)
-                .catch(console.error)
-                .finally(() => setLoading(false));
-        }
+        const load = async () => {
+            if (!user) return;
+            try {
+                const myComms = await communityService.getMyCommunities(user.uid);
+                const commIds = myComms.map(c => c.communityId);
+                const items = await notificationService.listAnnouncements(commIds);
+                setNotifications(items);
+            } catch (e) {
+                console.error("Failed to load announcements", e);
+            } finally {
+                setLoading(false);
+            }
+        };
+        load();
     }, [user]);
 
     const handleClick = async (notification: Notification) => {
@@ -29,7 +39,13 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onBack }) 
         if (!notification.read) {
             // Optimistic update
             setNotifications(prev => prev.map(n => n.id === notification.id ? { ...n, read: true } : n));
-            await notificationService.markRead(user.uid, notification.id);
+            // For announcement, we mark the whole community as read
+            if (notification.type === 'announcement' && notification.data?.communityId) {
+                await notificationService.markAnnouncementsRead(notification.data.communityId, user.uid);
+            } else {
+                // Fallback for old notifications if any
+                await notificationService.markRead(user.uid, notification.id);
+            }
         }
         // Handle navigation based on type later if needed
     };

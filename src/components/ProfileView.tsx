@@ -3,7 +3,8 @@ import { Box, Typography, Avatar, Paper, IconButton, Button, CircularProgress } 
 import { Settings, LogOut, Award, Flame, History } from 'lucide-react';
 import { useTheme } from '@mui/material/styles';
 import { useAuth } from '../contexts/AuthContext';
-import { Pledge, communityService } from '../services/community';
+import { communityService } from '../services/pledgeService';
+import { Pledge } from '../types/pledge';
 import { userService, UserProfile } from '../services/userService';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -18,7 +19,7 @@ interface ProfileViewProps {
 export const ProfileView: React.FC<ProfileViewProps> = ({ onSelectPledge, onNavigateToCommunity }) => {
     const theme = useTheme();
     const { user, logout, signInWithGoogle } = useAuth();
-    const { myPledges, pledges, loading: loadingPledges } = useCommunity(); // Consume global cache
+    const { myPledges, pledges, loading: loadingPledges, refresh } = useCommunity(); // Consume global cache
 
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [loading, setLoading] = useState(false);
@@ -192,15 +193,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSelectPledge, onNavi
 
                             const handleLeave = async (pledge: Pledge) => {
                                 if (!user) return;
-                                if (window.confirm("Are you sure you want to leave this cause?")) {
-                                    try {
-                                        setLoading(true);
-                                        await communityService.leavePledge(pledge.id, user.uid);
-                                        setLoading(false);
-                                    } catch (e) {
-                                        console.error(e);
-                                        setLoading(false);
-                                    }
+                                // Confirm is already handled in PledgeCard
+                                try {
+                                    setLoading(true);
+                                    await communityService.leavePledge(pledge.id, user.uid);
+                                    await refresh(); // Force refresh to update UI immediately
+                                    setLoading(false);
+                                } catch (e) {
+                                    console.error(e);
+                                    setLoading(false);
                                 }
                             };
 
@@ -238,6 +239,49 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSelectPledge, onNavi
                     sx={{ borderRadius: 3, textTransform: 'none', borderColor: 'error.main' }}
                 >
                     Sign Out
+                </Button>
+
+                {/* DEV ONLY BUTTONS */}
+                <Button
+                    variant="outlined"
+                    color="warning"
+                    fullWidth
+                    onClick={async () => {
+                        if (window.confirm("This will clear all local demo data, queues, and offline caches. Proceed?")) {
+                            localStorage.clear();
+                            try {
+                                const dbs = await window.indexedDB.databases();
+                                dbs.forEach(db => {
+                                    if (db.name) window.indexedDB.deleteDatabase(db.name);
+                                });
+                                alert("Data cleared! Reloading...");
+                                window.location.reload();
+                            } catch (e) {
+                                alert("Failed to clear IndexedDB completely, but localStorage is cleared. Reloading...");
+                                window.location.reload();
+                            }
+                        }
+                    }}
+                    sx={{ mt: 2, borderRadius: 3, textTransform: 'none' }}
+                >
+                    [DEV ONLY] Clear Local Data
+                </Button>
+                
+                <Button
+                    variant="text"
+                    color="secondary"
+                    fullWidth
+                    onClick={() => {
+                        if (user) {
+                            import('firebase/firestore').then(({ doc, setDoc }) => {
+                                setDoc(doc(db, 'users', user.uid), { role: 'superadmin' }, { merge: true })
+                                    .then(() => alert('You are now a superadmin! The navigation bar will update shortly.'));
+                            });
+                        }
+                    }}
+                    sx={{ mt: 2, borderRadius: 3, textTransform: 'none' }}
+                >
+                    [DEV ONLY] Make Me Superadmin
                 </Button>
             </Box>
         </Box>

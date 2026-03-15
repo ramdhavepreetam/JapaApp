@@ -2,7 +2,7 @@ import { db } from '../lib/firebase';
 import {
     collection, doc, getDocs, updateDoc,
     query, where, orderBy, limit, Timestamp,
-    writeBatch
+    serverTimestamp
 } from 'firebase/firestore';
 import { Notification } from '../types/community';
 
@@ -31,56 +31,91 @@ export const notificationService = {
     },
 
     /**
-     * Create Announcement with Client-Side Fan-out
-     * (Warning: Only suitable for small communities < 500-1000 members in this client-side phase)
+     * List Announcements (Pull-based) from communities
      */
-    createAnnouncementNotificationsFanout: async (
-        communityId: string,
-        postId: string,
-        title: string,
-        body: string
-    ): Promise<void> => {
-        // 1. Fetch all active members
-        // Ideally chunk this if we expect > 1000 members
-        const membersQ = query(
-            collection(db, 'community_members'),
-            where('communityId', '==', communityId),
-            where('status', '==', 'active')
-        );
+    listAnnouncements: async (communityIds: string[], limitCount: number = 20): Promise<Notification[]> => {
+        if (communityIds.length === 0) return [];
 
-        const membersSnap = await getDocs(membersQ);
+        // Note: 'in' query supports up to 10 items. If user has > 10 communities, 
+        // we might need multiple queries or client-side filtering. 
+        // For MVP Spark Plan, we'll assume < 10 or take top 10.
+        const safeCommunityIds = communityIds.slice(0, 10);
 
-        // 2. Batch Writes
-        const MAX_BATCH_SIZE = 450; // Safety margin under 500
-        const chunks = [];
-        const docs = membersSnap.docs;
+        // We are querying collection groups or iterating?
+        // Actually, the plan says: /communities/{communityId}/posts/{postId} where type='announcement'
+        // To get a unified "Inbox", we need a Collection Group Query OR multiple queries.
+        // Collection Group 'posts' index on type + createdAt needed.
+        // Let's assume for now we iterate specific communities or use a Collection Group query 
+        // if we index 'posts' by type 'announcement'.
 
-        for (let i = 0; i < docs.length; i += MAX_BATCH_SIZE) {
-            chunks.push(docs.slice(i, i + MAX_BATCH_SIZE));
-        }
+        // Strategy A: Iterate and merge (Safe, Cheaper if few communities)
+        // Strategy B: Collection Group (requires index, might read too much active data if not careful)
 
-        for (const chunk of chunks) {
-            const batch = writeBatch(db);
+        // Given constraints and "Spark-only", Collection Group Queries count as reads.
+        // Let's optimize for "My Communities".
 
-            chunk.forEach(memberDoc => {
-                const member = memberDoc.data();
-                const notifRef = doc(collection(db, 'users', member.uid, 'notifications'));
+        // For simplicity and rule security, we'll fetch from specific communities.
+        // But doing N queries is bad.
+        // Suggestion from Plan: "Aggregates announcements from user’s communities".
 
-                const notification: Notification = {
-                    id: notifRef.id,
+        const promises = safeCommunityIds.map(cid => {
+            const q = query(
+                collection(db, 'communities', cid, 'posts'),
+                where('type', '==', 'announcement'),
+                where('isDeleted', '==', false),
+                orderBy('createdAt', 'desc'),
+                limit(5) // Fetch top 5 from each
+            );
+            return getDocs(q);
+        });
+
+        const snapshots = await Promise.all(promises);
+        let allAnnouncements: Notification[] = [];
+
+        snapshots.forEach((snap, idx) => {
+            const cid = safeCommunityIds[idx];
+            snap.docs.forEach(d => {
+                const data = d.data();
+                allAnnouncements.push({
+                    id: d.id,
                     type: 'announcement',
-                    title: title,
-                    body: body,
-                    link: `/community/${communityId}/post/${postId}`,
-                    read: false,
-                    createdAt: Timestamp.now(), // Use local time for batch consistency or specific logic
-                    data: { communityId, postId }
-                };
-
-                batch.set(notifRef, notification);
+                    title: "Announcement from " + cid, // Title might be needed or derived
+                    body: data.content,
+                    link: `/community/${cid}`,
+                    read: false, // Calculated/hydrated at display time usually
+                    createdAt: data.createdAt,
+                    data: { communityId: cid, postId: d.id, ...data }
+                });
             });
+        });
 
-            await batch.commit();
-        }
+        // Sort combined results
+        return allAnnouncements.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis()).slice(0, limitCount);
+    },
+
+    /**
+     * Mark Announcements Read for a Community
+     */
+    markAnnouncementsRead: async (communityId: string, uid: string): Promise<void> => {
+        const memberRef = doc(db, 'community_members', `${communityId}_${uid}`);
+        await updateDoc(memberRef, {
+            lastReadAnnouncementsAt: serverTimestamp()
+        });
+    },
+
+    /**
+     * Get the latest announcement timestamp for a community (for badge check)
+     */
+    getLatestAnnouncementTime: async (communityId: string): Promise<Timestamp | null> => {
+        const q = query(
+            collection(db, 'communities', communityId, 'posts'),
+            where('type', '==', 'announcement'),
+            where('isDeleted', '==', false),
+            orderBy('createdAt', 'desc'),
+            limit(1)
+        );
+        const snap = await getDocs(q);
+        if (snap.empty) return null;
+        return snap.docs[0].data().createdAt as Timestamp;
     }
 };

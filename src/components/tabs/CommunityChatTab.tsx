@@ -167,7 +167,7 @@ export const CommunityChatTab: React.FC<CommunityChatTabProps> = ({ communityId,
                 <TextField
                     fullWidth
                     size="small"
-                    placeholder="Type a message..."
+                    placeholder={!user ? "Sign in to chat..." : "Type a message..."}
                     value={inputText}
                     onChange={(e) => setInputText(e.target.value)}
                     onKeyDown={(e) => {
@@ -178,8 +178,9 @@ export const CommunityChatTab: React.FC<CommunityChatTabProps> = ({ communityId,
                     }}
                     sx={{ bgcolor: 'action.hover', borderRadius: 1 }}
                     InputProps={{ sx: { borderRadius: 4 } }}
+                    disabled={!user || sending}
                 />
-                <IconButton color="primary" disabled={!inputText.trim() || sending} onClick={handleSend}>
+                <IconButton color="primary" disabled={!user || !inputText.trim() || sending} onClick={handleSend}>
                     <Send />
                 </IconButton>
             </Box>

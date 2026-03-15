@@ -73,19 +73,23 @@ export const localStore = {
         const members: CommunityMember[] = stored ? JSON.parse(stored) : [];
         // Dedup
         const idx = members.findIndex(m => m.communityId === member.communityId && m.uid === member.uid);
+        let isNewMember = false;
         if (idx >= 0) {
             members[idx] = member;
         } else {
             members.push(member);
+            isNewMember = true;
         }
         localStorage.setItem(KEY_MEMBERS, JSON.stringify(members));
 
-        // Update community count
-        const comms = localStore.getCommunities();
-        const comm = comms.find(c => c.id === member.communityId);
-        if (comm) {
-            comm.membersCount++;
-            localStorage.setItem(KEY_COMMUNITIES, JSON.stringify(comms));
+        // Update community count ONLY if it's a net new member
+        if (isNewMember) {
+            const comms = localStore.getCommunities();
+            const comm = comms.find(c => c.id === member.communityId);
+            if (comm) {
+                comm.membersCount++;
+                localStorage.setItem(KEY_COMMUNITIES, JSON.stringify(comms));
+            }
         }
     },
 

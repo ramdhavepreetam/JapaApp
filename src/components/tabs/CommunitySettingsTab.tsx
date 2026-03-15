@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import {
     Box, Typography, Switch, FormControlLabel, Button, Alert,
-    TextField, Card, CardContent
+    TextField, Card, CardContent, IconButton
 } from '@mui/material';
-import { Save } from 'lucide-react';
+import { Save, Copy, RefreshCw } from 'lucide-react';
 import { Community, UserRole } from '../../types/community';
 import { communityService } from '../../services/communityService';
 
@@ -25,6 +25,7 @@ export const CommunitySettingsTab: React.FC<CommunitySettingsTabProps> = ({ comm
         requiresApproval: boolean;
         chatEnabled?: boolean; // Hypothetical fields, need to check type
         feedEnabled?: boolean;
+        inviteCode?: string;
     }>({
         description: '',
         isPrivate: false,
@@ -47,6 +48,7 @@ export const CommunitySettingsTab: React.FC<CommunitySettingsTabProps> = ({ comm
                     // The type definition I saw EARLIER (step 11) DID NOT have chatEnabled/feedEnabled.
                     // So I need to Update the TYPE or store them in a "settings" map?
                     // I will Assume they are top level fields I need to add to the TYPE definition as well.
+                    inviteCode: c.inviteCode
                 });
             }
             setLoading(false);
@@ -73,6 +75,31 @@ export const CommunitySettingsTab: React.FC<CommunitySettingsTabProps> = ({ comm
             setMessage({ type: 'error', text: 'Failed to save settings.' });
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handleRegenerateCode = async () => {
+        if (!community) return;
+        setSaving(true);
+        try {
+            // Generate new code
+            const newCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+            await communityService.updateCommunity(communityId, {
+                inviteCode: newCode
+            });
+            setFormData(prev => ({ ...prev, inviteCode: newCode }));
+            setMessage({ type: 'success', text: 'Invite code regenerated.' });
+        } catch (e) {
+            setMessage({ type: 'error', text: 'Failed to regenerate code.' });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const copyToClipboard = () => {
+        if (formData.inviteCode) {
+            navigator.clipboard.writeText(formData.inviteCode);
+            setMessage({ type: 'success', text: 'Copied to clipboard!' });
         }
     };
 
@@ -129,6 +156,29 @@ export const CommunitySettingsTab: React.FC<CommunitySettingsTabProps> = ({ comm
                         label="Require Admin Approval to Join"
                     />
                 </CardContent>
+
+
+            </Card>
+
+            <Card variant="outlined" sx={{ mb: 2 }}>
+                <CardContent>
+                    <Typography variant="subtitle2" gutterBottom>Invite Code</Typography>
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                        Share this code with others to let them join this community instantly, even if it is private.
+                    </Typography>
+
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', bgcolor: 'action.hover', p: 1, borderRadius: 1 }}>
+                        <Typography variant="h6" fontFamily="monospace" sx={{ letterSpacing: 2, flex: 1, textAlign: 'center' }}>
+                            {formData.inviteCode || '...'}
+                        </Typography>
+                        <IconButton size="small" onClick={copyToClipboard} color="primary">
+                            <Copy size={18} />
+                        </IconButton>
+                        <IconButton size="small" onClick={handleRegenerateCode} color="error" title="Regenerate Code">
+                            <RefreshCw size={18} />
+                        </IconButton>
+                    </Box>
+                </CardContent>
             </Card>
 
             <Card variant="outlined">
@@ -162,6 +212,6 @@ export const CommunitySettingsTab: React.FC<CommunitySettingsTabProps> = ({ comm
                     Save Changes
                 </Button>
             </Box>
-        </Box>
+        </Box >
     );
 };

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Globe2, Plus } from 'lucide-react';
-import { communityService, Pledge } from '../services/community';
+import { communityService } from '../services/pledgeService';
+import { Pledge } from '../types/pledge';
 import { PledgeCard } from './PledgeCard';
 import { PledgeForm } from './PledgeForm';
 import {

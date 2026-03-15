@@ -78,12 +78,15 @@ service cloud.firestore {
         // Update:
         // 1. Admins of the community can update roles/status
         // 2. User can update their own status (leave) but NOT role
+        // BUG FIX #3: totalMalas and totalMantras must be included in the allowed self-update
+        // keys so that the communityJapaService transaction can update member contribution
+        // totals. Without this, every japa entry transaction is blocked → permission-denied.
         allow update: if isAuthenticated() &&
                       (
                         isCommunityAdmin(resource.data.communityId) ||
                         (
                            resource.data.uid == request.auth.uid &&
-                           !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']) 
+                           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'lastReadAnnouncementsAt', 'lastReadChatAt', 'notificationPrefs', 'totalMalas', 'totalMantras'])
                         )
                       );
                       
@@ -99,8 +102,14 @@ service cloud.firestore {
       // Create: Any authenticated user can create a community
       allow create: if isAuthenticated();
       
-      // Update: Only Owner/Admin can update settings. 
-      allow update: if isCommunityAdmin(communityId);
+      // Update: 
+      // 1. Admin/Owner can update settings.
+      // 2. Any Auth user can update counters (membersCount, totalMalas, totalMantras) - needed for joining/chanting.
+      allow update: if isCommunityAdmin(communityId) || 
+                    (
+                      isAuthenticated() && 
+                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['membersCount', 'totalMalas', 'totalMantras'])
+                    );
       
       // Delete: Only Owner
       allow delete: if isCommunityOwner(communityId);
@@ -124,16 +133,17 @@ service cloud.firestore {
       }
 
       // --- Chat Subcollection ---
-      match /chat/{messageId} {
+      // --- Chat Subcollection ---
+      match /chat_messages/{messageId} {
         allow read: if isCommunityMember(communityId);
         
         allow create: if isCommunityMember(communityId) && 
-                      request.resource.data.authorId == request.auth.uid;
+                      request.resource.data.senderId == request.auth.uid;
                       
         // Update: Soft-delete only
         allow update: if isCommunityMember(communityId) &&
                       (
-                        (resource.data.authorId == request.auth.uid) || 
+                        (resource.data.senderId == request.auth.uid) || 
                         isCommunityAdmin(communityId)
                       );
       }
@@ -149,6 +159,42 @@ service cloud.firestore {
         // Immutable
         allow update, delete: if false;
       }
+    }
+
+    // --- Pledges Collection (Legacy/Global) ---
+    match /pledges/{pledgeId} {
+        allow read: if true; // Public pledges
+        allow create: if isAuthenticated();
+        // BUG FIX #4: contribute() increments currentMalas for any participant, not just
+        // the creator. Allow any authenticated user to update only the currentMalas counter.
+        // All other field edits (title, description, targetMalas, etc.) remain creator-only.
+        allow update: if isAuthenticated() &&
+                      (
+                        resource.data.creatorId == request.auth.uid ||
+                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['currentMalas'])
+                      );
+    }
+
+    // --- User Pledges Subcollection (Legacy) ---
+    // Note: The code might be fetching `users/{uid}/pledges` or similar.
+    // Based on previous logs, it seems to be root `pledges` and maybe `user_pledges`?
+    // Let's check CommunityContext.tsx to be sure, but adding this here is safe.
+
+     match /users/{userId}/pledges/{pledgeId} {
+        allow read, write: if isOwner(userId);
+    }
+
+    // --- Pledge Participants (Legacy/Global) ---
+    match /pledge_participants/{participantId} {
+        // Read: if user is owner of the participant doc OR it's public data (for leaderboards)?
+        // Context code queries: where('userId', '==', user.uid) -> So users read their own participation.
+        allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+        
+        // Also allow reading by anyone if it's for public stats? 
+        // For now, strict: only own.
+        
+        allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+        allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
   }
 }

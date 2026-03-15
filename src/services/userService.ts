@@ -1,6 +1,7 @@
 import { db } from '../lib/firebase';
 import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
 import { User } from 'firebase/auth';
+import { calculateStreak } from './streakUtils';
 
 export interface UserProfile {
     uid: string;
@@ -77,21 +78,9 @@ export const userService = {
             ? countsCompleted
             : Math.max(0, malasCompleted) * 108;
 
+        const newStreak = calculateStreak(currentStats.lastChantDate, currentStats.streakDays || 0);
         const today = new Date().toISOString().split('T')[0];
-        const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
 
-        let newStreak = currentStats.streakDays;
-
-        // Streak Logic
-        if (currentStats.lastChantDate === today) {
-            // Already counted for today, keep streak same
-        } else if (currentStats.lastChantDate === yesterday) {
-            // Consecutive day
-            newStreak += 1;
-        } else {
-            // Missed a day or first time
-            newStreak = 1;
-        }
 
         await setDoc(userRef, {
             stats: {

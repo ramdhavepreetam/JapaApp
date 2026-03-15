@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Pledge } from '../services/community';
+import { Pledge } from '../types/pledge';
 import { DialogTitle, DialogContent, DialogActions, TextField, Button, Box } from '@mui/material';
 
 interface PledgeFormProps {

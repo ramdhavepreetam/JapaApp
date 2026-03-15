@@ -9,6 +9,7 @@ export type StorageSchema = {
     currentCount: number;
     currentMala: number;
     totalCounts: number;
+    totalMalas: number; // lifetime mala counter — never resets (unlike currentMala)
     session: SessionState;
     pendingSync: PendingSyncItem[];
 };
@@ -39,6 +40,7 @@ const INITIAL_STATE: StorageSchema = {
     currentCount: 0,
     currentMala: 0,
     totalCounts: 0,
+    totalMalas: 0,
     session: {
         active: false,
         paused: false,
@@ -98,6 +100,7 @@ export const storage = {
         if (data.currentCount >= 108) {
             data.currentCount = 0;
             data.currentMala += 1;
+            data.totalMalas += 1; // lifetime counter — never resets
             data.history[today].malas += 1;
             malaCompleted = true;
             if (data.session.active && !data.session.paused) {

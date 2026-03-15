@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Volume2, VolumeX, RotateCcw, History, Sparkles, Target, Users, Play, Pause, RotateCw, WifiOff, Wifi } from 'lucide-react';
 import { storage, StorageSchema, PendingSyncItem } from '../lib/storage';
 import { BeadRing } from './BeadRing';
-import { Pledge } from '../services/community';
+import { Pledge } from '../types/pledge';
 import { Box, IconButton, Button, Typography, Chip, useTheme, Zoom, LinearProgress } from '@mui/material';
 import { useAuth } from '../contexts/AuthContext';
 import { useCommunity } from '../contexts/CommunityContext';
@@ -19,6 +19,7 @@ interface JapaCounterProps {
     mode?: 'personal' | 'pledge' | 'community';
     contextId?: string; // pledgeId or communityId
     onSaved?: (malas: number, mantras: number) => void;
+    mantra?: string;
 }
 
 export const JapaCounter: React.FC<JapaCounterProps> = ({
@@ -26,15 +27,29 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
     onViewReport,
     mode = activePledge ? 'pledge' : 'personal',
     contextId = activePledge?.id,
-    onSaved
+    onSaved,
+    mantra = activePledge?.mantra
 }) => {
     const { user } = useAuth();
-    const { myPledges } = useCommunity();
+    const { myPledges, refresh: refreshPledges } = useCommunity();
     const [data, setData] = useState<StorageSchema>(storage.get());
     const [soundEnabled, setSoundEnabled] = useState(true);
     const [feedback, setFeedback] = useState<string | null>(null);
     const [isOnline, setIsOnline] = useState(navigator.onLine);
+    const [mantraFontSize, setMantraFontSize] = useState<number>(() => {
+        const saved = localStorage.getItem('japa_mantra_font_size');
+        return saved ? parseInt(saved, 10) : 24;
+    });
     const theme = useTheme();
+
+    const handleFontSizeChange = (e: React.MouseEvent, change: number) => {
+        e.stopPropagation();
+        setMantraFontSize(prev => {
+            const newSize = Math.max(14, Math.min(48, prev + change));
+            localStorage.setItem('japa_mantra_font_size', newSize.toString());
+            return newSize;
+        });
+    };
 
     // Community Contribution Logic (Only for Pledge Mode currently used here, Community Mode passed down via tab)
     // For Community Mode, we might want to fetch my contribution to *that* community specifically?
@@ -187,11 +202,16 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
                 }
                 // 2. Pledge Mode
                 else if (mode === 'pledge' && contextId) {
-                    import('../services/community').then(({ communityService }) => {
-                        communityService.contribute(contextId!, user.uid, 1);
+                    import('../services/pledgeService').then(({ communityService }) => {
+                        communityService.contribute(contextId!, user.uid, 1)
+                            .then(() => {
+                                // Re-fetch pledges & myPledges so UI updates
+                                // (onSnapshot may be dead in mock/offline mode)
+                                refreshPledges();
+                            })
+                            .catch((err: unknown) => console.error('Pledge contribute failed', err));
                     });
-                    // Pledges also update personal stats separately usually?
-                    // Existing code did: userService.updateUserStats. keeping it.
+                    // Pledges also update personal stats separately
                     userService.updateUserStats(user.uid, 1, 108).catch(() => queueSync(108, 1));
                 }
                 // 3. Personal Mode
@@ -221,20 +241,19 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
         // For Community Mode, we should probably submit the partial session?
         // The prompt says "When a mala completes or user saves". This is "Reset" which users effectively use as "Save & End".
 
-        const counts = data.session.counts;
-        const malas = data.session.malas;
+        const leftoverCounts = data.session.counts % 108;
 
-        if ((counts > 0 || malas > 0) && user) {
+        if (leftoverCounts > 0 && user) {
             if (mode === 'community' && contextId) {
                 // Submit session totals
-                await submitCommunityEntry(malas, counts);
+                await submitCommunityEntry(0, leftoverCounts);
             } else {
                 // Personal/Pledge queue logic
                 const item: PendingSyncItem = {
                     id: `session_${Date.now()}`,
                     createdAt: new Date().toISOString(),
-                    counts,
-                    malas,
+                    counts: leftoverCounts,
+                    malas: 0,
                     completed: true
                 };
                 storage.enqueueSync(item);
@@ -336,6 +355,59 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
 
                 {/* Community Mode overlay handled by parent usually, but good to have indicator if standalone */}
 
+                {/* Mantra Display */}
+                {mantra && (
+                    <Box sx={{
+                        position: 'relative',
+                        mt: 8, // Added to prevent overlap with the badges above
+                        mb: 4,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '100%',
+                        maxWidth: 360,
+                        minHeight: 80, // Reserve space to prevent layout shift
+                        pointerEvents: 'auto'
+                    }}>
+                        <Typography
+                            variant="body1"
+                            sx={{
+                                fontSize: `${mantraFontSize}px`,
+                                fontFamily: theme.typography.fontFamily,
+                                fontStyle: 'italic',
+                                fontWeight: 500,
+                                color: 'primary.main',
+                                textAlign: 'center',
+                                transition: 'font-size 0.2s ease-in-out',
+                                px: 2
+                            }}
+                        >
+                            "{mantra}"
+                        </Typography>
+
+                        {/* Font Size Controls */}
+                        <Box sx={{ display: 'flex', gap: 1, mt: 1, opacity: 0.5, '&:hover': { opacity: 1 }, transition: 'opacity 0.2s' }}>
+                            <Button 
+                                size="small" 
+                                onClick={(e) => handleFontSizeChange(e, -2)}
+                                disabled={mantraFontSize <= 14}
+                                sx={{ minWidth: 'auto', p: 0.5 }}
+                            >
+                                A-
+                            </Button>
+                            <Button 
+                                size="small" 
+                                onClick={(e) => handleFontSizeChange(e, 2)}
+                                disabled={mantraFontSize >= 48}
+                                sx={{ minWidth: 'auto', p: 0.5 }}
+                            >
+                                A+
+                            </Button>
+                        </Box>
+                    </Box>
+                )}
+
                 <BeadRing count={data.currentCount} />
 
                 <Box sx={{ mt: 1, width: '100%', maxWidth: 320 }}>
@@ -349,13 +421,31 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
                     </Typography>
                 </Box>
 
-                <Box sx={{ mt: 1, textAlign: 'center', pointerEvents: 'none' }}>
-                    <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 3, fontWeight: 700 }}>
-                        Mala Completed
-                    </Typography>
-                    <Typography variant="h3" color="primary.main">
-                        {data.history[new Date().toISOString().split('T')[0]]?.malas || 0}
-                    </Typography>
+                <Box sx={{ mt: 1, display: 'flex', gap: 3, justifyContent: 'center', alignItems: 'center', pointerEvents: 'none' }}>
+                    {/* Today's malas */}
+                    <Box sx={{ textAlign: 'center' }}>
+                        <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 2, fontWeight: 700, display: 'block' }}>
+                            Today
+                        </Typography>
+                        <Typography variant="h3" color="primary.main" sx={{ lineHeight: 1 }}>
+                            {data.history[new Date().toISOString().split('T')[0]]?.malas || 0}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">malas</Typography>
+                    </Box>
+
+                    {/* Divider */}
+                    <Box sx={{ width: '1px', height: 56, bgcolor: 'divider' }} />
+
+                    {/* Lifetime malas — uses totalMalas which never resets */}
+                    <Box sx={{ textAlign: 'center' }}>
+                        <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 2, fontWeight: 700, display: 'block' }}>
+                            Lifetime
+                        </Typography>
+                        <Typography variant="h3" color="secondary.main" sx={{ lineHeight: 1 }}>
+                            {data.totalMalas}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">malas</Typography>
+                    </Box>
                 </Box>
 
                 <AnimatePresence>
