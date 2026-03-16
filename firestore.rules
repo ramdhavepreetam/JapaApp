@@ -40,10 +40,23 @@ service cloud.firestore {
     }
 
     // --- User Collection ---
-    
+
+    // Privileged fields (role, status, plan) can only be written via Admin SDK
+    // (Cloud Functions). Client writes to these fields are explicitly denied.
     match /users/{userId} {
       allow read: if isAuthenticated();
-      allow write: if isOwner(userId);
+
+      // Users can create their own profile doc but cannot set privileged fields
+      allow create: if isOwner(userId) &&
+                    !request.resource.data.keys().hasAny(['role', 'status', 'plan']);
+
+      // Users can update their own profile but cannot modify privileged fields
+      allow update: if isOwner(userId) &&
+                    !request.resource.data.diff(resource.data)
+                      .affectedKeys().hasAny(['role', 'status', 'plan']);
+
+      // Profile deletion is handled server-side only
+      allow delete: if false;
 
       // Notifications: Read-only for the user, write restricted (System/Admin SDK only)
       match /notifications/{notificationId} {
