@@ -1,7 +1,8 @@
 import { db } from '../lib/firebase';
-import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, increment, Timestamp } from 'firebase/firestore';
 import { User } from 'firebase/auth';
 import { calculateStreak } from './streakUtils';
+import { runWithFallback } from './resilience';
 
 export interface UserProfile {
     uid: string;
@@ -17,79 +18,155 @@ export interface UserProfile {
     joinedAt: Timestamp;
 }
 
+// --- Local cache helpers ---
+const USER_CACHE_KEY = (uid: string) => `japa_v1_user_${uid}`;
+
+const getCachedProfile = (uid: string): UserProfile | null => {
+    try {
+        const s = localStorage.getItem(USER_CACHE_KEY(uid));
+        return s ? JSON.parse(s) : null;
+    } catch { return null; }
+};
+
+const setCachedProfile = (uid: string, profile: UserProfile) => {
+    try { localStorage.setItem(USER_CACHE_KEY(uid), JSON.stringify(profile)); } catch {}
+};
+
+const makeEmptyProfile = (user: User): UserProfile => ({
+    uid: user.uid,
+    displayName: user.displayName || 'Sadhaka',
+    photoURL: user.photoURL || '',
+    email: user.email || '',
+    stats: { totalMalas: 0, totalMantras: 0, streakDays: 0, lastChantDate: null },
+    joinedAt: Timestamp.now()
+});
+
 export const userService = {
     // Ensure user document exists in Firestore on first login
     ensureUserExists: async (user: User) => {
         if (!user) return;
-
-        const userRef = doc(db, 'users', user.uid);
-        const userSnap = await getDoc(userRef);
-
-        if (!userSnap.exists()) {
-            return userService.createProfile(user);
-        } else {
-            return userSnap.data() as UserProfile;
-        }
+        return runWithFallback(
+            async () => {
+                const userRef = doc(db, 'users', user.uid);
+                const userSnap = await getDoc(userRef);
+                if (!userSnap.exists()) {
+                    const newProfile = makeEmptyProfile(user);
+                    await setDoc(userRef, newProfile, { merge: true });
+                    setCachedProfile(user.uid, newProfile);
+                    return newProfile;
+                } else {
+                    const profile = userSnap.data() as UserProfile;
+                    setCachedProfile(user.uid, profile);
+                    return profile;
+                }
+            },
+            async () => {
+                const cached = getCachedProfile(user.uid);
+                if (cached) return cached;
+                const profile = makeEmptyProfile(user);
+                setCachedProfile(user.uid, profile);
+                return profile;
+            },
+            "Ensure User Exists"
+        );
     },
 
-    // Optimized method for when we know the user is new (e.g. from onSnapshot missing)
+    // Optimized method for when we know the user is new
     createProfile: async (user: User): Promise<UserProfile> => {
-        const userRef = doc(db, 'users', user.uid);
-        const newProfile: UserProfile = {
-            uid: user.uid,
-            displayName: user.displayName || 'Sadhaka',
-            photoURL: user.photoURL || '',
-            email: user.email || '',
-            stats: {
-                totalMalas: 0,
-                totalMantras: 0,
-                streakDays: 0,
-                lastChantDate: null
+        return runWithFallback(
+            async () => {
+                const userRef = doc(db, 'users', user.uid);
+                const newProfile = makeEmptyProfile(user);
+                await setDoc(userRef, newProfile, { merge: true });
+                setCachedProfile(user.uid, newProfile);
+                return newProfile;
             },
-            joinedAt: Timestamp.now()
-        };
-        // Use setDoc with merge: true just in case, but essentially this is a blind write for speed
-        await setDoc(userRef, newProfile, { merge: true });
-        return newProfile;
+            async () => {
+                const profile = makeEmptyProfile(user);
+                setCachedProfile(user.uid, profile);
+                return profile;
+            },
+            "Create Profile"
+        );
     },
 
     getUserProfile: async (uid: string) => {
-        const userRef = doc(db, 'users', uid);
-        const userSnap = await getDoc(userRef);
-        return userSnap.exists() ? userSnap.data() as UserProfile : null;
+        return runWithFallback(
+            async () => {
+                const userRef = doc(db, 'users', uid);
+                const userSnap = await getDoc(userRef);
+                if (userSnap.exists()) {
+                    const profile = userSnap.data() as UserProfile;
+                    setCachedProfile(uid, profile);
+                    return profile;
+                }
+                return null;
+            },
+            async () => getCachedProfile(uid),
+            "Get User Profile"
+        );
     },
 
+    // Uses FieldValue.increment() for totalMalas/totalMantras to avoid race conditions
     updateUserStats: async (userId: string, malasCompleted: number = 0, countsCompleted: number = 0) => {
         if (malasCompleted <= 0 && countsCompleted <= 0) return;
-        const userRef = doc(db, 'users', userId);
-        const userSnap = await getDoc(userRef);
+        return runWithFallback(
+            async () => {
+                const userRef = doc(db, 'users', userId);
+                const userSnap = await getDoc(userRef);
+                if (!userSnap.exists()) return;
 
-        if (!userSnap.exists()) return; // Should account for ensureUserExists previously called ideally
+                const data = userSnap.data() as UserProfile;
+                const currentStats = data.stats || {
+                    totalMalas: 0, totalMantras: 0, streakDays: 0, lastChantDate: null
+                };
 
-        const data = userSnap.data() as UserProfile;
-        const currentStats = data.stats || {
-            totalMalas: 0,
-            totalMantras: 0,
-            streakDays: 0,
-            lastChantDate: null
-        };
+                const resolvedCounts = countsCompleted > 0
+                    ? countsCompleted
+                    : Math.max(0, malasCompleted) * 108;
 
-        const resolvedCounts = countsCompleted > 0
-            ? countsCompleted
-            : Math.max(0, malasCompleted) * 108;
+                const newStreak = calculateStreak(currentStats.lastChantDate, currentStats.streakDays || 0);
+                const today = new Date().toISOString().split('T')[0];
 
-        const newStreak = calculateStreak(currentStats.lastChantDate, currentStats.streakDays || 0);
-        const today = new Date().toISOString().split('T')[0];
+                // Use increment() for cumulative fields — atomic, safe for concurrent updates
+                await updateDoc(userRef, {
+                    'stats.totalMalas': increment(Math.max(0, malasCompleted)),
+                    'stats.totalMantras': increment(Math.max(0, resolvedCounts)),
+                    'stats.streakDays': newStreak,
+                    'stats.lastChantDate': today
+                });
 
-
-        await setDoc(userRef, {
-            stats: {
-                ...currentStats,
-                totalMalas: (currentStats.totalMalas || 0) + Math.max(0, malasCompleted),
-                totalMantras: (currentStats.totalMantras || 0) + Math.max(0, resolvedCounts),
-                streakDays: newStreak,
-                lastChantDate: today
-            }
-        }, { merge: true });
+                // Update local cache with best-guess values
+                setCachedProfile(userId, {
+                    ...data,
+                    stats: {
+                        totalMalas: (currentStats.totalMalas || 0) + Math.max(0, malasCompleted),
+                        totalMantras: (currentStats.totalMantras || 0) + Math.max(0, resolvedCounts),
+                        streakDays: newStreak,
+                        lastChantDate: today
+                    }
+                });
+            },
+            async () => {
+                const cached = getCachedProfile(userId);
+                if (!cached) return;
+                const currentStats = cached.stats;
+                const resolvedCounts = countsCompleted > 0
+                    ? countsCompleted
+                    : Math.max(0, malasCompleted) * 108;
+                const newStreak = calculateStreak(currentStats.lastChantDate, currentStats.streakDays || 0);
+                const today = new Date().toISOString().split('T')[0];
+                setCachedProfile(userId, {
+                    ...cached,
+                    stats: {
+                        totalMalas: (currentStats.totalMalas || 0) + Math.max(0, malasCompleted),
+                        totalMantras: (currentStats.totalMantras || 0) + Math.max(0, resolvedCounts),
+                        streakDays: newStreak,
+                        lastChantDate: today
+                    }
+                });
+            },
+            "Update User Stats"
+        );
     }
 };

@@ -2,6 +2,24 @@ import { localStore } from './localStore';
 import { communityJapaApi } from './communityJapaService';
 import { communityChatApi } from './communityChatService'; // We need to check if this export works, I added it.
 import { resetFallbackState } from './resilience'; // To reset mock mode if we successfully sync
+import { track } from '../lib/analytics';
+
+// Exponential backoff retry — emits 'sync:failed' after exhausting all attempts
+async function retrySync(fn: () => Promise<void>, attempts = 3): Promise<void> {
+    for (let i = 0; i < attempts; i++) {
+        try {
+            await fn();
+            return;
+        } catch (e) {
+            if (i === attempts - 1) {
+                track.syncFailed();
+                window.dispatchEvent(new CustomEvent('sync:failed'));
+                throw e;
+            }
+            await new Promise(r => setTimeout(r, 1000 * Math.pow(2, i)));
+        }
+    }
+}
 
 export const syncService = {
 
@@ -15,15 +33,15 @@ export const syncService = {
         console.log("Starting Sync...");
 
         try {
-            await syncService.syncJapaEntries();
-            await syncService.syncChatMessages();
+            await retrySync(() => syncService.syncJapaEntries());
+            await retrySync(() => syncService.syncChatMessages());
 
             // If we successfully synced, it suggests we are online.
             // We can optionally attempt to reset the generic fallback state.
             resetFallbackState();
 
         } catch (e) {
-            console.error("Sync failed:", e);
+            console.error("Sync failed after retries:", e);
         } finally {
             syncService.isSyncing = false;
         }

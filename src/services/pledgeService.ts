@@ -6,6 +6,7 @@ import {
 import { User } from 'firebase/auth';
 
 import { Pledge, PledgeParticipant } from '../types/pledge';
+import { runWithFallback } from './resilience';
 
 // --- MOCK IMPLEMENTATION (LocalStorage) ---
 const LOCAL_STORAGE_KEY_PLEDGES = 'japa_mock_pledges';
@@ -176,54 +177,26 @@ const mockService = {
     }
 };
 
-// --- REAL SERVICE (with Fallback) ---
-// We try to perform the action with Firebase. If it fails with a recognizable network/permission error,
-// we switch to Mock Mode for this session.
-
-let USE_MOCK_FALLBACK = false;
-
-const withFallback = async <T>(apiCall: () => Promise<T>, mockCall: () => Promise<T>, context: string): Promise<T> => {
-    if (USE_MOCK_FALLBACK) {
-        console.log(`[DemoMode] ${context}`);
-        return mockCall();
-    }
-    try {
-        // Race the real call against a timeout to detect hangs
-        const timeout = new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error("FIREBASE_TIMEOUT")), 5000)
-        );
-        return await Promise.race([apiCall(), timeout]);
-    } catch (error: any) {
-        console.warn(`Firebase failed (${context}):`, error);
-        // Switch to mock if basic connectivity is broken
-        if (error.message === "FIREBASE_TIMEOUT" || error.code === 'unavailable' || error.code === 'permission-denied' || error.message?.includes("offline")) {
-            console.info("⚠️ Switching to Local Demo Mode due to backend unavailability.");
-            USE_MOCK_FALLBACK = true;
-            return mockCall();
-        }
-        throw error; // Re-throw validation errors
-    }
-}
+// --- REAL SERVICE (with Global Fallback) ---
 
 export const communityService = {
     // Initialize standard pledges if they don't exist
     seedInitialPledges: async () => {
-        if (USE_MOCK_FALLBACK) return;
-        try {
-            const pledgesRef = collection(db, 'pledges');
-            const snapshot = await getDocs(pledgesRef);
-            if (snapshot.empty) {
-                // ... same seed logic ...
-                // Simplified for brevity, usually seeding is done by admin, safe to skip in fallback
-            }
-        } catch (e) {
-            console.log("Seeding skipped (offline/mock)");
-            USE_MOCK_FALLBACK = true;
-        }
+        return runWithFallback(
+            async () => {
+                const pledgesRef = collection(db, 'pledges');
+                const snapshot = await getDocs(pledgesRef);
+                if (snapshot.empty) {
+                    // Seeding is typically done by admin; safe to no-op here
+                }
+            },
+            async () => { /* no-op in offline mode */ },
+            "Seed Initial Pledges"
+        );
     },
 
     getPledges: async (): Promise<Pledge[]> => {
-        return withFallback(
+        return runWithFallback(
             async () => {
                 const querySnapshot = await getDocs(collection(db, 'pledges'));
                 return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Pledge));
@@ -235,7 +208,7 @@ export const communityService = {
 
     createPledge: async (pledge: Omit<Pledge, 'id' | 'currentMalas' | 'participants'>, user: User): Promise<Pledge> => {
         if (!user?.uid) throw new Error("Requires authentication to create a pledge");
-        return withFallback(
+        return runWithFallback(
             async () => {
                 // 0. Limit Check (Max 50)
                 const limitQ = query(collection(db, 'pledges'), where('creatorId', '==', user.uid));
@@ -271,7 +244,7 @@ export const communityService = {
 
     joinPledge: async (pledge: Pledge, user: User, alreadyJoined: boolean = false): Promise<void> => {
         if (!user?.uid) throw new Error("Requires authentication to join a pledge");
-        return withFallback(
+        return runWithFallback(
             async () => {
                 if (alreadyJoined) return;
                 const participationId = `${pledge.id}_${user.uid}`;
@@ -299,7 +272,7 @@ export const communityService = {
 
     leavePledge: async (pledgeId: string, userId: string): Promise<void> => {
         if (!userId) throw new Error("Requires authentication to leave a pledge");
-        return withFallback(
+        return runWithFallback(
             async () => {
                 const participationId = `${pledgeId}_${userId}`;
                 const participationRef = doc(db, 'pledge_participants', participationId);
@@ -316,7 +289,7 @@ export const communityService = {
     },
 
     getMyPledges: async (userId: string): Promise<PledgeParticipant[]> => {
-        return withFallback(
+        return runWithFallback(
             async () => {
                 const q = query(collection(db, 'pledge_participants'), where('userId', '==', userId));
                 const snapshot = await getDocs(q);
@@ -329,7 +302,7 @@ export const communityService = {
 
     contribute: async (pledgeId: string, userId: string, malas: number): Promise<void> => {
         if (!userId) throw new Error("Requires authentication to contribute");
-        return withFallback(
+        return runWithFallback(
             async () => {
                 if (malas <= 0) return;
                 const participationId = `${pledgeId}_${userId}`;
@@ -347,7 +320,7 @@ export const communityService = {
 
     deletePledge: async (pledgeId: string, _userId: string): Promise<void> => {
         if (!_userId) throw new Error("Requires authentication to delete a pledge");
-        return withFallback(
+        return runWithFallback(
             async () => {
                 const pledgeRef = doc(db, 'pledges', pledgeId);
                 // Verify ownership is usually done via security rules, but we can do a check here too if we fetched first
@@ -370,7 +343,7 @@ export const communityService = {
 
     updatePledge: async (pledgeId: string, updates: Partial<Pledge>, _userId: string): Promise<Pledge> => {
         if (!_userId) throw new Error("Requires authentication to update a pledge");
-        return withFallback(
+        return runWithFallback(
             async () => {
                 const pledgeRef = doc(db, 'pledges', pledgeId);
                 await updateDoc(pledgeRef, updates);

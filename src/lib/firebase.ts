@@ -1,6 +1,8 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
+import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
+import { getAnalytics } from 'firebase/analytics';
 
 
 // Your web app's Firebase configuration
@@ -29,6 +31,28 @@ export const db = initializeFirestore(app, {
         tabManager: persistentMultipleTabManager()
     })
 });
+
+// App Check — only initialize if a valid site key is configured
+const recaptchaKey = import.meta.env.VITE_RECAPTCHA_V3_SITE_KEY;
+export const appCheck = recaptchaKey
+    ? (() => {
+        if (import.meta.env.DEV) {
+            (self as any).FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+        }
+        try {
+            return initializeAppCheck(app, {
+                provider: new ReCaptchaV3Provider(recaptchaKey),
+                isTokenAutoRefreshEnabled: true
+            });
+        } catch (e) {
+            console.warn('App Check initialization failed:', e);
+            return null;
+        }
+    })()
+    : null;
+
+// Analytics (enabled only when measurementId is configured)
+export const analytics = firebaseConfig.measurementId ? getAnalytics(app) : null;
 
 // Helper to log if we are running in mock mode
 if (firebaseConfig.apiKey === "MOCK_KEY") {

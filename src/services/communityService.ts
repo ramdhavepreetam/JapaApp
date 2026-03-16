@@ -9,6 +9,14 @@ import { Community, CommunityMember, UserProfileSummary, UserRole, JoinRequest }
 import { runWithFallback } from './resilience';
 import { localStore } from './localStore';
 
+// 10-character cryptographically random invite code using an unambiguous alphabet
+const generateInviteCode = (): string => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    return Array.from(crypto.getRandomValues(new Uint8Array(10)))
+        .map(b => chars[b % chars.length])
+        .join('');
+};
+
 export const communityService = {
 
     /**
@@ -45,7 +53,7 @@ export const communityService = {
                     totalMalas: 0,
                     totalMantras: 0,
                     tags: payload.tags || [],
-                    inviteCode: Math.random().toString(36).substring(2, 8).toUpperCase() // 6 char alphanumeric
+                    inviteCode: generateInviteCode()
                 };
                 batch.set(commRef, communityData);
 
@@ -264,82 +272,97 @@ export const communityService = {
      */
     requestJoinCommunity: async (communityId: string, userProfile: UserProfileSummary): Promise<void> => {
         if (!userProfile?.uid) throw new Error("Requires authentication");
-        const commRef = doc(db, 'communities', communityId);
-        const commSnap = await getDoc(commRef);
-        if (!commSnap.exists()) throw new Error("Community not found");
+        return runWithFallback(
+            async () => {
+                const commRef = doc(db, 'communities', communityId);
+                const commSnap = await getDoc(commRef);
+                if (!commSnap.exists()) throw new Error("Community not found");
 
-        const memberId = `${communityId}_${userProfile.uid}`;
-        const memberRef = doc(db, 'community_members', memberId);
-        const memberSnap = await getDoc(memberRef);
+                const memberId = `${communityId}_${userProfile.uid}`;
+                const memberRef = doc(db, 'community_members', memberId);
+                const memberSnap = await getDoc(memberRef);
 
-        if (memberSnap.exists()) {
-            if (memberSnap.data()?.status === 'banned') throw new Error("You are banned from this community.");
-            if (memberSnap.data()?.status === 'active') throw new Error("Already a member.");
-        }
+                if (memberSnap.exists()) {
+                    if (memberSnap.data()?.status === 'banned') throw new Error("You are banned from this community.");
+                    if (memberSnap.data()?.status === 'active') throw new Error("Already a member.");
+                }
 
-        const reqId = `${communityId}_${userProfile.uid}`;
-        const reqRef = doc(db, 'community_join_requests', reqId);
-
-        await setDoc(reqRef, {
-            id: reqId,
-            communityId,
-            user: userProfile,
-            status: 'pending',
-            requestedAt: serverTimestamp()
-        });
+                const reqId = `${communityId}_${userProfile.uid}`;
+                const reqRef = doc(db, 'community_join_requests', reqId);
+                await setDoc(reqRef, {
+                    id: reqId,
+                    communityId,
+                    user: userProfile,
+                    status: 'pending',
+                    requestedAt: serverTimestamp()
+                });
+            },
+            async () => {
+                // Queue request locally for retry when online
+                const key = 'japa_v1_pending_join_requests';
+                try {
+                    const stored = localStorage.getItem(key);
+                    const requests: { communityId: string; uid: string; requestedAt: number }[] = stored ? JSON.parse(stored) : [];
+                    if (!requests.find(r => r.communityId === communityId && r.uid === userProfile.uid)) {
+                        requests.push({ communityId, uid: userProfile.uid, requestedAt: Date.now() });
+                        localStorage.setItem(key, JSON.stringify(requests));
+                    }
+                } catch {}
+            },
+            "Request Join Community"
+        );
     },
 
     /**
      * Join with Invite Code
      */
-    /**
-     * Join with Invite Code
-     */
     joinWithInviteCode: async (inviteCode: string, userProfile: UserProfileSummary): Promise<void> => {
         if (!userProfile?.uid) throw new Error("Requires authentication");
-        // Find community by invite code using specific index or query
-        const q = query(
-            collection(db, 'communities'),
-            where('inviteCode', '==', inviteCode),
-            limit(1)
+        return runWithFallback(
+            async () => {
+                const q = query(
+                    collection(db, 'communities'),
+                    where('inviteCode', '==', inviteCode),
+                    limit(1)
+                );
+                const snapshot = await getDocs(q);
+                if (snapshot.empty) {
+                    throw new Error("Invalid invite code");
+                }
+
+                const commDoc = snapshot.docs[0];
+                const communityId = commDoc.id;
+
+                const memberId = `${communityId}_${userProfile.uid}`;
+                const memberRef = doc(db, 'community_members', memberId);
+                const memberSnap = await getDoc(memberRef);
+                if (memberSnap.exists()) {
+                    const status = memberSnap.data()?.status;
+                    if (status === 'banned') throw new Error("Banned from this community");
+                    if (status === 'active') throw new Error("Already a member");
+                }
+
+                const batch = writeBatch(db);
+                batch.set(memberRef, {
+                    uid: userProfile.uid,
+                    communityId: communityId,
+                    role: 'member',
+                    joinedAt: serverTimestamp(),
+                    totalMalas: 0,
+                    totalMantras: 0,
+                    status: 'active'
+                });
+                if (!memberSnap.exists() || memberSnap.data()?.status !== 'active') {
+                    batch.update(commDoc.ref, { membersCount: increment(1) });
+                }
+                await batch.commit();
+            },
+            async () => {
+                // Invite code lookup requires Firestore — cannot work offline
+                throw new Error("Joining with an invite code requires an internet connection. Please try again when online.");
+            },
+            "Join With Invite Code"
         );
-        const snapshot = await getDocs(q);
-
-        if (snapshot.empty) {
-            throw new Error("Invalid invite code");
-        }
-
-        const commDoc = snapshot.docs[0];
-        const communityId = commDoc.id;
-
-        // Proceed to join directly (bypass approval)
-        const memberId = `${communityId}_${userProfile.uid}`;
-        const memberRef = doc(db, 'community_members', memberId);
-
-        // Check ban/existing logic...
-        const memberSnap = await getDoc(memberRef);
-        if (memberSnap.exists()) {
-            const status = memberSnap.data()?.status;
-            if (status === 'banned') throw new Error("Banned from this community");
-            if (status === 'active') throw new Error("Already a member");
-        }
-
-        const batch = writeBatch(db);
-        batch.set(memberRef, {
-            uid: userProfile.uid,
-            communityId: communityId,
-            role: 'member',
-            joinedAt: serverTimestamp(),
-            totalMalas: 0,
-            totalMantras: 0,
-            status: 'active'
-        });
-
-        // If not already member (or rejoined), increment
-        if (!memberSnap.exists() || memberSnap.data()?.status !== 'active') {
-            batch.update(commDoc.ref, { membersCount: increment(1) });
-        }
-        await batch.commit();
     },
 
     /**

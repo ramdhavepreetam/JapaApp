@@ -33,6 +33,34 @@
             ]
         },
         {
+            "collectionGroup": "community_members",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "communityId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "uid",
+                    "order": "ASCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "community_members",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "uid",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "status",
+                    "order": "ASCENDING"
+                }
+            ]
+        },
+        {
             "collectionGroup": "posts",
             "queryScope": "COLLECTION",
             "fields": [
@@ -60,6 +88,52 @@
                 },
                 {
                     "fieldPath": "createdAt",
+                    "order": "DESCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "pledges",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "creatorId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "createdAt",
+                    "order": "DESCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "pledge_participants",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "userId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "joinedAt",
+                    "order": "DESCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "community_join_requests",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "communityId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "status",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "requestedAt",
                     "order": "DESCENDING"
                 }
             ]

@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "firebase": {
+      "command": "/opt/homebrew/opt/node@20/bin/npx",
+      "args": [
+        "-y",
+        "firebase-tools",
+        "mcp",
+        "--dir",
+        "/Users/preetam/Documents/JapaApp"
+      ]
+    }
+  }
+}
