@@ -204,7 +204,7 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
                 }
                 // 2. Pledge Mode
                 else if (mode === 'pledge' && contextId) {
-                    import('../services/pledgeService').then(({ communityService }) => {
+                    import('../services/pledgeService').then(({ pledgeService: communityService }) => {
                         communityService.contribute(contextId!, user.uid, 1)
                             .then(() => {
                                 // Re-fetch pledges & myPledges so UI updates

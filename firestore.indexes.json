@@ -137,7 +137,30 @@
                     "order": "DESCENDING"
                 }
             ]
+        },
+        {
+            "collectionGroup": "communities",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "isPrivate",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "name",
+                    "order": "ASCENDING"
+                }
+            ]
         }
     ],
-    "fieldOverrides": []
+    "fieldOverrides": [
+        {
+            "collectionGroup": "users",
+            "fieldPath": "stats.totalMalas",
+            "indexes": [
+                { "order": "ASCENDING", "queryScope": "COLLECTION" },
+                { "order": "DESCENDING", "queryScope": "COLLECTION" }
+            ]
+        }
+    ]
 }

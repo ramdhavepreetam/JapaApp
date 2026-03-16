@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { db } from '../lib/firebase';
 import { writeBatch } from 'firebase/firestore';
-import { communityService } from './pledgeService';
+import { pledgeService as communityService } from './pledgeService';
 import { User } from 'firebase/auth';
 
 describe('pledgeService', () => {

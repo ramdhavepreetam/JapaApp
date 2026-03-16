@@ -5,7 +5,7 @@ import { Box, Typography, Avatar, Paper, IconButton, Button, CircularProgress } 
 import { Settings, LogOut, Award, Flame, History } from 'lucide-react';
 import { useTheme } from '@mui/material/styles';
 import { useAuth } from '../contexts/AuthContext';
-import { communityService } from '../services/pledgeService';
+import { pledgeService as communityService } from '../services/pledgeService';
 import { Pledge } from '../types/pledge';
 import { userService, UserProfile } from '../services/userService';
 import { doc, onSnapshot } from 'firebase/firestore';

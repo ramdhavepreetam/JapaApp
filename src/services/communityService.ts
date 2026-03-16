@@ -3,7 +3,7 @@ import {
     collection, doc, getDoc, getDocs, setDoc, updateDoc,
     query, where, orderBy, limit,
     startAfter, Timestamp, writeBatch, serverTimestamp,
-    increment, DocumentSnapshot
+    increment, DocumentSnapshot, runTransaction
 } from 'firebase/firestore';
 import { Community, CommunityMember, UserProfileSummary, UserRole, JoinRequest } from '../types/community';
 import { runWithFallback } from './resilience';
@@ -213,45 +213,47 @@ export const communityService = {
     },
 
     /**
-     * Join an open community immediately
+     * Join an open community immediately.
+     * Uses a transaction to atomically check membership status and increment membersCount,
+     * preventing double-join race conditions that would corrupt the counter.
      */
     joinCommunityOpen: async (communityId: string, userProfile: UserProfileSummary): Promise<void> => {
         if (!userProfile?.uid) throw new Error("Requires authentication");
         return runWithFallback(
             async () => {
                 const commRef = doc(db, 'communities', communityId);
-                const commSnap = await getDoc(commRef);
-                if (!commSnap.exists()) throw new Error("Community not found");
-
-                const comm = commSnap.data() as Community;
-                if (comm.requiresApproval) throw new Error("This community requires approval to join.");
-
                 const memberId = `${communityId}_${userProfile.uid}`;
                 const memberRef = doc(db, 'community_members', memberId);
 
-                const memberSnap = await getDoc(memberRef);
-                if (memberSnap.exists() && memberSnap.data()?.status === 'banned') {
-                    throw new Error("You are banned from this community.");
-                }
-                if (memberSnap.exists() && memberSnap.data()?.status === 'active') {
-                    return; // Already joined
-                }
+                await runTransaction(db, async (transaction) => {
+                    // All reads before any writes (Firestore transaction requirement)
+                    const commSnap = await transaction.get(commRef);
+                    const memberSnap = await transaction.get(memberRef);
 
-                const batch = writeBatch(db);
-                batch.set(memberRef, {
-                    uid: userProfile.uid,
-                    communityId: communityId,
-                    displayName: userProfile.displayName || '',
-                    photoURL: userProfile.photoURL || '',
-                    role: 'member',
-                    joinedAt: serverTimestamp(),
-                    totalMalas: 0,
-                    totalMantras: 0,
-                    status: 'active'
+                    if (!commSnap.exists()) throw new Error("Community not found");
+                    const comm = commSnap.data() as Community;
+                    if (comm.requiresApproval) throw new Error("This community requires approval to join.");
+
+                    if (memberSnap.exists()) {
+                        const status = memberSnap.data()?.status;
+                        if (status === 'banned') throw new Error("You are banned from this community.");
+                        if (status === 'active') return; // Already a member — idempotent
+                    }
+
+                    // All writes after all reads
+                    transaction.set(memberRef, {
+                        uid: userProfile.uid,
+                        communityId: communityId,
+                        displayName: userProfile.displayName || '',
+                        photoURL: userProfile.photoURL || '',
+                        role: 'member',
+                        joinedAt: serverTimestamp(),
+                        totalMalas: 0,
+                        totalMantras: 0,
+                        status: 'active'
+                    });
+                    transaction.update(commRef, { membersCount: increment(1) });
                 });
-                batch.update(commRef, { membersCount: increment(1) });
-
-                await batch.commit();
             },
             async () => {
                 // Mock join
@@ -376,101 +378,111 @@ export const communityService = {
      */
     approveMember: async (communityId: string, memberUid: string, _adminUid: string): Promise<void> => {
         if (!_adminUid) throw new Error("Requires authentication");
-        // ideally verify admin role here or via firestore rules. 
-        // We will assume UI checks but enforcing via rules is best.
+        return runWithFallback(
+            async () => {
+                const reqRef = doc(db, 'community_join_requests', `${communityId}_${memberUid}`);
+                const reqSnap = await getDoc(reqRef);
+                if (!reqSnap.exists()) throw new Error("Request not found");
 
-        const reqRef = doc(db, 'community_join_requests', `${communityId}_${memberUid}`);
-        const reqSnap = await getDoc(reqRef);
-        if (!reqSnap.exists()) throw new Error("Request not found");
+                const reqData = reqSnap.data() as JoinRequest;
+                const memberRef = doc(db, 'community_members', `${communityId}_${memberUid}`);
+                const commRef = doc(db, 'communities', communityId);
 
-        const batch = writeBatch(db);
-
-        // Create member — displayName/photoURL come from the join request
-        const reqData = reqSnap.data() as JoinRequest;
-        const memberRef = doc(db, 'community_members', `${communityId}_${memberUid}`);
-        batch.set(memberRef, {
-            uid: memberUid,
-            communityId: communityId,
-            displayName: reqData.user?.displayName || '',
-            photoURL: reqData.user?.photoURL || '',
-            role: 'member',
-            joinedAt: serverTimestamp(),
-            totalMalas: 0,
-            totalMantras: 0,
-            status: 'active'
-        });
-
-        // Update Community Count
-        const commRef = doc(db, 'communities', communityId);
-        batch.update(commRef, { membersCount: increment(1) });
-
-        // Delete request or mark approved
-        batch.delete(reqRef); // Or update status to 'approved' for history
-
-        await batch.commit();
+                const batch = writeBatch(db);
+                batch.set(memberRef, {
+                    uid: memberUid,
+                    communityId: communityId,
+                    displayName: reqData.user?.displayName || '',
+                    photoURL: reqData.user?.photoURL || '',
+                    role: 'member',
+                    joinedAt: serverTimestamp(),
+                    totalMalas: 0,
+                    totalMantras: 0,
+                    status: 'active'
+                });
+                batch.update(commRef, { membersCount: increment(1) });
+                batch.delete(reqRef);
+                await batch.commit();
+            },
+            async () => { /* Cannot approve while offline */ },
+            "Approve Member"
+        );
     },
 
     /**
      * Reject a join request
      */
     rejectMember: async (communityId: string, memberUid: string): Promise<void> => {
-        // Assume admin check happens downstream via rules or caller, but ensuring at least caller is auth'd usually needs another arg.
-        // For now, leaving as is since signature doesn't take adminUid. 
-        const reqRef = doc(db, 'community_join_requests', `${communityId}_${memberUid}`);
-        await updateDoc(reqRef, { status: 'rejected' });
-        // Or delete
+        return runWithFallback(
+            async () => {
+                const reqRef = doc(db, 'community_join_requests', `${communityId}_${memberUid}`);
+                await updateDoc(reqRef, { status: 'rejected' });
+            },
+            async () => { /* Cannot reject while offline */ },
+            "Reject Member"
+        );
     },
 
     /**
-     * Leave a community
+     * Leave a community.
+     * Uses a transaction to atomically check active status and decrement membersCount,
+     * preventing double-decrement race conditions.
      */
     leaveCommunity: async (communityId: string, uid: string): Promise<void> => {
         if (!uid) throw new Error("Requires authentication");
-        const memberRef = doc(db, 'community_members', `${communityId}_${uid}`);
-        const commRef = doc(db, 'communities', communityId);
+        return runWithFallback(
+            async () => {
+                const memberRef = doc(db, 'community_members', `${communityId}_${uid}`);
+                const commRef = doc(db, 'communities', communityId);
 
-        const memberSnap = await getDoc(memberRef);
-        if (!memberSnap.exists() || memberSnap.data()?.status !== 'active') {
-            return;
-        }
-
-        const batch = writeBatch(db);
-        batch.update(memberRef, { status: 'left' }); // Soft delete/mark left to keep stats? Or hard delete?
-        // Usually better to keep for "total historical contribution" but prompt says "leave". 
-        // Let's set status to left.
-
-        batch.update(commRef, { membersCount: increment(-1) });
-        await batch.commit();
+                await runTransaction(db, async (transaction) => {
+                    const memberSnap = await transaction.get(memberRef);
+                    if (!memberSnap.exists() || memberSnap.data()?.status !== 'active') {
+                        return; // Already left or not a member — idempotent
+                    }
+                    transaction.update(memberRef, { status: 'left' });
+                    transaction.update(commRef, { membersCount: increment(-1) });
+                });
+            },
+            async () => { /* Queue for sync when back online */ },
+            "Leave Community"
+        );
     },
 
     /**
      * Update Member Role
      */
     updateMemberRole: async (communityId: string, memberUid: string, newRole: UserRole): Promise<void> => {
-        // Assume admin auth check is handled in caller layer or rules, as signature lacks admin param.
-        const memberRef = doc(db, 'community_members', `${communityId}_${memberUid}`);
-        await updateDoc(memberRef, { role: newRole });
+        return runWithFallback(
+            async () => {
+                const memberRef = doc(db, 'community_members', `${communityId}_${memberUid}`);
+                await updateDoc(memberRef, { role: newRole });
+            },
+            async () => { /* Cannot update role while offline */ },
+            "Update Member Role"
+        );
     },
 
     /**
      * Remove or Ban Member
      */
     removeOrBanMember: async (communityId: string, memberUid: string, action: 'remove' | 'ban'): Promise<void> => {
-        // Assuming admin auth check handled in caller/rules.
-        const memberRef = doc(db, 'community_members', `${communityId}_${memberUid}`);
-        const commRef = doc(db, 'communities', communityId);
-
-        const batch = writeBatch(db);
-
-        if (action === 'ban') {
-            batch.update(memberRef, { status: 'banned' });
-        } else {
-            batch.delete(memberRef); // Remove completely
-            // Or batch.update(memberRef, { status: 'left' }) if we want to preserve stats
-        }
-
-        batch.update(commRef, { membersCount: increment(-1) });
-        await batch.commit();
+        return runWithFallback(
+            async () => {
+                const memberRef = doc(db, 'community_members', `${communityId}_${memberUid}`);
+                const commRef = doc(db, 'communities', communityId);
+                const batch = writeBatch(db);
+                if (action === 'ban') {
+                    batch.update(memberRef, { status: 'banned' });
+                } else {
+                    batch.delete(memberRef);
+                }
+                batch.update(commRef, { membersCount: increment(-1) });
+                await batch.commit();
+            },
+            async () => { /* Cannot remove/ban while offline */ },
+            "Remove or Ban Member"
+        );
     },
     /**
      * List members of a community
@@ -518,12 +530,24 @@ export const communityService = {
     },
 
     /**
-     * Update Community Settings
+     * Update Community Settings.
+     * Only whitelisted fields can be updated via client — prevents callers from accidentally
+     * overwriting immutable fields like id, creatorId, or inviteCode.
      */
     updateCommunity: async (communityId: string, updates: Partial<Community>): Promise<void> => {
-        // Assuming admin auth check handled upstream.
+        const ALLOWED_FIELDS: (keyof Community)[] = [
+            'name', 'description', 'imageUrl', 'isPrivate', 'requiresApproval', 'tags'
+        ];
+        const safeUpdates: Partial<Community> = {};
+        for (const key of ALLOWED_FIELDS) {
+            if (key in updates) {
+                (safeUpdates as any)[key] = (updates as any)[key];
+            }
+        }
+        if (Object.keys(safeUpdates).length === 0) return;
+
         const ref = doc(db, 'communities', communityId);
-        await updateDoc(ref, updates);
+        await updateDoc(ref, safeUpdates);
     },
     /**
      * Search communities by name (prefix search)

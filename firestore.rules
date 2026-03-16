@@ -17,7 +17,7 @@ service cloud.firestore {
     function isCommunityMember(communityId) {
       let memberId = communityId + "_" + request.auth.uid;
       let memberPath = /databases/$(database)/documents/community_members/$(memberId);
-      return exists(memberPath) && 
+      return exists(memberPath) &&
              get(memberPath).data.status == 'active';
     }
 
@@ -26,17 +26,26 @@ service cloud.firestore {
       let memberId = communityId + "_" + request.auth.uid;
       let memberPath = /databases/$(database)/documents/community_members/$(memberId);
       let memberData = get(memberPath).data;
-      return exists(memberPath) && 
-             memberData.status == 'active' && 
+      return exists(memberPath) &&
+             memberData.status == 'active' &&
              memberData.role in roles;
     }
-    
+
     function isCommunityAdmin(communityId) {
       return hasCommunityRole(communityId, ['owner', 'admin']);
     }
 
     function isCommunityOwner(communityId) {
       return hasCommunityRole(communityId, ['owner']);
+    }
+
+    // Check if the current user has superadmin or admin role at the app level.
+    // Used to gate admin panel operations (ban user, assign role, feature community, etc.)
+    function isAppAdmin() {
+      let userPath = /databases/$(database)/documents/users/$(request.auth.uid);
+      return isAuthenticated() &&
+             exists(userPath) &&
+             get(userPath).data.role in ['superadmin', 'admin'];
     }
 
     // --- User Collection ---
@@ -50,10 +59,13 @@ service cloud.firestore {
       allow create: if isOwner(userId) &&
                     !request.resource.data.keys().hasAny(['role', 'status', 'plan']);
 
-      // Users can update their own profile but cannot modify privileged fields
-      allow update: if isOwner(userId) &&
-                    !request.resource.data.diff(resource.data)
-                      .affectedKeys().hasAny(['role', 'status', 'plan']);
+      // Users can update their own profile but cannot modify privileged fields.
+      // App-level admins (superadmin/admin role) can update any field, including
+      // privileged ones (role, status, plan) — required for banUser/assignRole operations.
+      allow update: if (isOwner(userId) &&
+                        !request.resource.data.diff(resource.data)
+                          .affectedKeys().hasAny(['role', 'status', 'plan'])) ||
+                    isAppAdmin();
 
       // Profile deletion is handled server-side only
       allow delete: if false;
@@ -109,8 +121,9 @@ service cloud.firestore {
     // --- Communities Collection ---
 
     match /communities/{communityId} {
-      // Read: Public communities readable by all, Private by members only
-      allow read: if resource.data.isPrivate == false || isCommunityMember(communityId);
+      // Read: Public communities readable by all, Private by members only.
+      // App admins can read all communities (required for admin stats count + panel).
+      allow read: if resource.data.isPrivate == false || isCommunityMember(communityId) || isAppAdmin();
       
       // Create: Any authenticated user can create a community
       allow create: if isAuthenticated();
@@ -202,12 +215,48 @@ service cloud.firestore {
         // Read: if user is owner of the participant doc OR it's public data (for leaderboards)?
         // Context code queries: where('userId', '==', user.uid) -> So users read their own participation.
         allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
-        
-        // Also allow reading by anyone if it's for public stats? 
+
+        // Also allow reading by anyone if it's for public stats?
         // For now, strict: only own.
-        
+
         allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
         allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+
+        // Delete: user can remove their own participation (leave pledge) OR admins can clean up
+        allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAppAdmin());
+    }
+
+    // --- Community Join Requests ---
+    // ID Format: communityId_userId
+    match /community_join_requests/{reqId} {
+        // Read: Community admins can view pending requests for their community
+        allow read: if isAuthenticated() && isCommunityAdmin(resource.data.communityId);
+
+        // Create: Authenticated user can submit a join request for themselves
+        allow create: if isAuthenticated() &&
+                      request.resource.data.user.uid == request.auth.uid &&
+                      request.resource.data.status == 'pending';
+
+        // Update: Community admin can approve/reject (change status)
+        allow update: if isAuthenticated() && isCommunityAdmin(resource.data.communityId);
+
+        // Delete: Community admin can clean up approved/rejected requests
+        allow delete: if isAuthenticated() && isCommunityAdmin(resource.data.communityId);
+    }
+
+    // --- Admin Audit Logs ---
+    // Write-only for app admins (superadmin/admin). Read also restricted to admins.
+    // No client should ever delete audit logs.
+    match /admin_logs/{logId} {
+        allow read: if isAppAdmin();
+        allow create: if isAppAdmin();
+        allow update, delete: if false;
+    }
+
+    // --- Global Stats (read by admin dashboard) ---
+    match /global_stats/{docId} {
+        allow read: if isAuthenticated();
+        allow write: if false; // Written only by Cloud Functions via Admin SDK
     }
   }
 }

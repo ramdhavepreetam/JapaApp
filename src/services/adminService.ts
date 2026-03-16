@@ -160,9 +160,9 @@ export const adminService = {
   /**
    * COMMUNITIES
    */
-  getAllCommunities: async (): Promise<AdminCommunityView[]> => {
+  getAllCommunities: async (limitCount: number = 200): Promise<AdminCommunityView[]> => {
     // Sort featured first, then by members
-    const q = query(collection(db, 'communities'));
+    const q = query(collection(db, 'communities'), limit(limitCount));
     const snap = await getDocs(q);
     
     const communities = snap.docs.map(d => {
@@ -251,40 +251,42 @@ export const adminService = {
    * STATS
    */
   getAppStats: async (): Promise<{ totalUsers: number, totalMalas: number, activeCommunities: number, totalDonations: number }> => {
-    // We can use getCountFromServer for total users and communities
-    try {
-      const usersSnap = await getCountFromServer(collection(db, 'users'));
-      const activeCommSnap = await getCountFromServer(collection(db, 'communities'));
-      
-      // For total malas across app, we would ideally need a global aggregate document.
-      // Since it's potentially heavy to sum all users, we will fetch a subset or use a mock logic
-      // if no global tracker exists. 
-      // Admin dashboard phase 1: Try reading from a global stats doc, if missing, default to 0
-      let totalMalas = 0;
-      let totalDonations = 0;
-      
-      // Let's assume there's a global_stats collection or we'll mock it temporarily
-      const globalStatsRef = doc(db, 'global_stats', 'metrics');
-      const globalStatsDoc = await getDoc(globalStatsRef);
-      if (globalStatsDoc.exists()) {
-        totalMalas = globalStatsDoc.data().totalMalas || 0;
-        totalDonations = globalStatsDoc.data().totalDonations || 0;
-      } else {
-        // Fallback: estimate from top users or just return 0 until Phase 2 aggregate functions are built
+    // Run counts in parallel for speed. Each is independent.
+    const [usersSnap, activeCommSnap] = await Promise.all([
+      getCountFromServer(collection(db, 'users')),
+      getCountFromServer(collection(db, 'communities')),
+    ]);
+
+    let totalMalas = 0;
+    let totalDonations = 0;
+
+    // Try the global_stats aggregation doc first (written by Cloud Functions).
+    // Fall back to summing the top 100 users if it doesn't exist yet.
+    const globalStatsRef = doc(db, 'global_stats', 'metrics');
+    const globalStatsDoc = await getDoc(globalStatsRef);
+
+    if (globalStatsDoc.exists()) {
+      totalMalas = globalStatsDoc.data().totalMalas || 0;
+      totalDonations = globalStatsDoc.data().totalDonations || 0;
+    } else {
+      // Fallback: estimate from top 100 users.
+      // Note: requires a single-field index override on stats.totalMalas DESC —
+      // add a fieldOverride in firestore.indexes.json if this query fails.
+      try {
         const qTop = query(collection(db, 'users'), orderBy('stats.totalMalas', 'desc'), limit(100));
         const topSnap = await getDocs(qTop);
-        totalMalas = topSnap.docs.reduce((acc, doc) => acc + (doc.data().stats?.totalMalas || 0), 0);
+        totalMalas = topSnap.docs.reduce((acc, d) => acc + (d.data().stats?.totalMalas || 0), 0);
+      } catch {
+        // If the fallback query also fails (e.g. index not built yet), show 0 rather than crashing
+        totalMalas = 0;
       }
-
-      return {
-        totalUsers: usersSnap.data().count,
-        totalMalas,
-        activeCommunities: activeCommSnap.data().count,
-        totalDonations
-      };
-    } catch (e) {
-      console.error("Failed to getAppStats", e);
-      return { totalUsers: 0, totalMalas: 0, activeCommunities: 0, totalDonations: 0 };
     }
+
+    return {
+      totalUsers: usersSnap.data().count,
+      totalMalas,
+      activeCommunities: activeCommSnap.data().count,
+      totalDonations
+    };
   }
 };

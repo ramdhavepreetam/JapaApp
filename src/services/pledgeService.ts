@@ -1,7 +1,7 @@
 import { db } from '../lib/firebase';
 import {
     collection, doc, getDocs, query, where,
-    increment, writeBatch, Timestamp, addDoc, updateDoc
+    increment, writeBatch, Timestamp, addDoc, updateDoc, limit, orderBy
 } from 'firebase/firestore';
 import { User } from 'firebase/auth';
 
@@ -60,7 +60,6 @@ const mockService = {
 
         const newPledge: Pledge = {
             id: `mock_${Date.now()}`,
-            ...pledge,
             ...pledge,
             currentMalas: 0,
             participants: 1,
@@ -179,7 +178,7 @@ const mockService = {
 
 // --- REAL SERVICE (with Global Fallback) ---
 
-export const communityService = {
+export const pledgeService = {
     // Initialize standard pledges if they don't exist
     seedInitialPledges: async () => {
         return runWithFallback(
@@ -195,11 +194,16 @@ export const communityService = {
         );
     },
 
-    getPledges: async (): Promise<Pledge[]> => {
+    getPledges: async (limitCount: number = 50): Promise<Pledge[]> => {
         return runWithFallback(
             async () => {
-                const querySnapshot = await getDocs(collection(db, 'pledges'));
-                return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Pledge));
+                const q = query(
+                    collection(db, 'pledges'),
+                    orderBy('participants', 'desc'),
+                    limit(limitCount)
+                );
+                const querySnapshot = await getDocs(q);
+                return querySnapshot.docs.map(d => ({ id: d.id, ...d.data() } as Pledge));
             },
             mockService.getPledges,
             "Listing Pledges"
@@ -226,7 +230,6 @@ export const communityService = {
 
                 const newPledgeData = {
                     ...pledge,
-                    ...pledge,
                     currentMalas: 0,
                     participants: 1,
                     creatorId: user.uid
@@ -234,7 +237,7 @@ export const communityService = {
 
                 const docRef = await addDoc(collection(db, 'pledges'), newPledgeData);
                 const newPledge = { id: docRef.id, ...newPledgeData };
-                await communityService.joinPledge(newPledge, user);
+                await pledgeService.joinPledge(newPledge, user);
                 return newPledge;
             },
             () => mockService.createPledge(pledge, user),
@@ -323,18 +326,34 @@ export const communityService = {
         return runWithFallback(
             async () => {
                 const pledgeRef = doc(db, 'pledges', pledgeId);
-                // Verify ownership is usually done via security rules, but we can do a check here too if we fetched first
-                // For now assuming UI protects it and Security Rules protect it
 
                 // Get all participants
                 const q = query(collection(db, 'pledge_participants'), where('pledgeId', '==', pledgeId));
                 const snap = await getDocs(q);
 
-                const batch = writeBatch(db);
-                snap.docs.forEach(d => batch.delete(d.ref));
-                batch.delete(pledgeRef);
+                // Firestore writeBatch is capped at 500 operations.
+                // Chunk participant deletes into batches of 499, then delete the pledge doc
+                // in the final batch to keep the operation atomic across chunks.
+                const BATCH_LIMIT = 499;
+                const participantRefs = snap.docs.map(d => d.ref);
 
-                await batch.commit();
+                for (let i = 0; i < participantRefs.length; i += BATCH_LIMIT) {
+                    const chunk = participantRefs.slice(i, i + BATCH_LIMIT);
+                    const batch = writeBatch(db);
+                    chunk.forEach(ref => batch.delete(ref));
+                    // Include the pledge doc deletion only in the last batch
+                    if (i + BATCH_LIMIT >= participantRefs.length) {
+                        batch.delete(pledgeRef);
+                    }
+                    await batch.commit();
+                }
+
+                // If no participants existed, delete the pledge doc standalone
+                if (participantRefs.length === 0) {
+                    const batch = writeBatch(db);
+                    batch.delete(pledgeRef);
+                    await batch.commit();
+                }
             },
             () => mockService.deletePledge(pledgeId),
             "Deleting Pledge"
