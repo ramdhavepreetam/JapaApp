@@ -81,12 +81,12 @@ export const ReportView: React.FC<ReportViewProps> = ({ onBack }) => {
                                 p: 3,
                                 height: '100%',
                                 borderRadius: 4,
-                                background: 'linear-gradient(135deg, #0F766E 0%, #0D9488 100%)',
+                                background: 'linear-gradient(135deg, #881337 0%, #9F1239 100%)',
                                 color: 'white',
                                 display: 'flex',
                                 flexDirection: 'column',
                                 justifyContent: 'space-between',
-                                boxShadow: '0 10px 30px -10px rgba(15, 118, 110, 0.5)'
+                                boxShadow: '0 10px 30px -10px rgba(136, 19, 55, 0.5)'
                             }}
                         >
                             <Box>

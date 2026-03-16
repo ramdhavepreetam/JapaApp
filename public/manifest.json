@@ -1,0 +1,19 @@
+{
+  "name": "JapaApp — Mala Counter",
+  "short_name": "JapaApp",
+  "description": "Digital mala counter for japa meditation and community chanting",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FFF8F0",
+  "theme_color": "#EA580C",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["lifestyle", "health", "religion"]
+}

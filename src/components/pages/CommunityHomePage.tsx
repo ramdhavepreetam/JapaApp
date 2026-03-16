@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     Box, AppBar, Toolbar, IconButton, Typography, Tabs, Tab,
     CircularProgress, Button
@@ -21,6 +22,7 @@ interface CommunityHomePageProps {
 }
 
 export const CommunityHomePage: React.FC<CommunityHomePageProps> = ({ communityId, onBack }) => {
+    const { t } = useTranslation();
     const { user } = useAuth();
     const [community, setCommunity] = useState<Community | null>(null);
     const [myRole, setMyRole] = useState<UserRole | undefined>(undefined);
@@ -143,13 +145,13 @@ export const CommunityHomePage: React.FC<CommunityHomePageProps> = ({ communityI
                     </Typography>
 
                     <Typography variant="body1" color="text.secondary" sx={{ mb: 4, maxWidth: 400 }}>
-                        {community.description || "No description provided."}
+                        {community.description || t('communities.noDescription')}
                     </Typography>
 
                     <Box sx={{ display: 'flex', gap: 4, mb: 6 }}>
                         <Box>
                             <Typography variant="h6" fontWeight="bold">{community.membersCount}</Typography>
-                            <Typography variant="caption" color="text.secondary">Members</Typography>
+                            <Typography variant="caption" color="text.secondary">{t('communityTabs.members')}</Typography>
                         </Box>
                         <Box>
                             <Typography variant="h6" fontWeight="bold">{community.totalMalas}</Typography>
@@ -164,7 +166,7 @@ export const CommunityHomePage: React.FC<CommunityHomePageProps> = ({ communityI
                         sx={{ borderRadius: 8, height: 56, maxWidth: 300, fontSize: '1.1rem' }}
                         onClick={handleJoin}
                     >
-                        {community.requiresApproval || community.isPrivate ? "Request to Join" : "Join Community"}
+                        {community.requiresApproval || community.isPrivate ? t('communities.requestToJoin') : t('communities.join')}
                     </Button>
                 </Box>
             </Box>
@@ -184,7 +186,7 @@ export const CommunityHomePage: React.FC<CommunityHomePageProps> = ({ communityI
                             {community.name}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                            {community.membersCount} members
+                            {community.membersCount} {t('communities.members')}
                         </Typography>
                     </Box>
                 </Toolbar>
@@ -196,11 +198,11 @@ export const CommunityHomePage: React.FC<CommunityHomePageProps> = ({ communityI
                     indicatorColor="primary"
                     textColor="primary"
                 >
-                    <Tab icon={<ListIcon size={20} />} label="Feed" />
-                    <Tab icon={<MessageSquare size={20} />} label="Chat" />
-                    <Tab icon={<Target size={20} />} label="Chant" />
-                    <Tab icon={<Users size={20} />} label="Members" />
-                    {isAdmin && <Tab icon={<SettingsIcon size={20} />} label="Settings" />}
+                    <Tab icon={<ListIcon size={20} />} label={t('communityTabs.feed')} />
+                    <Tab icon={<MessageSquare size={20} />} label={t('communityTabs.chat')} />
+                    <Tab icon={<Target size={20} />} label={t('communityTabs.chant')} />
+                    <Tab icon={<Users size={20} />} label={t('communityTabs.members')} />
+                    {isAdmin && <Tab icon={<SettingsIcon size={20} />} label={t('communityTabs.settings')} />}
                 </Tabs>
             </AppBar>
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     Box, TextField, IconButton, Typography,
     Paper, Button
@@ -15,6 +16,7 @@ interface CommunityChatTabProps {
 }
 
 export const CommunityChatTab: React.FC<CommunityChatTabProps> = ({ communityId, currentUserRole }) => {
+    const { t } = useTranslation();
     const { user } = useAuth();
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [inputText, setInputText] = useState('');
@@ -90,7 +92,7 @@ export const CommunityChatTab: React.FC<CommunityChatTabProps> = ({ communityId,
 
     const handleDelete = async (msgId: string) => {
         if (!user) return;
-        if (confirm("Delete this message?")) {
+        if (confirm(t('chat.deleteConfirm'))) {
             await communityChatService.softDeleteMessage(communityId, msgId, user.uid);
         }
     };
@@ -98,7 +100,7 @@ export const CommunityChatTab: React.FC<CommunityChatTabProps> = ({ communityId,
     const isAdmin = currentUserRole === 'admin' || currentUserRole === 'owner';
 
     return (
-        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: '#e5e5e5' }}>
+        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
             <Box sx={{ flex: 1, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column' }}>
                 {hasMore && messages.length >= 50 && (
                     <Button
@@ -107,7 +109,7 @@ export const CommunityChatTab: React.FC<CommunityChatTabProps> = ({ communityId,
                         size="small"
                         sx={{ alignSelf: 'center', mb: 2 }}
                     >
-                        {loadingMore ? 'Loading...' : 'Load Older'}
+                        {loadingMore ? t('chat.loading') : t('chat.loadOlder')}
                     </Button>
                 )}
 
@@ -141,7 +143,7 @@ export const CommunityChatTab: React.FC<CommunityChatTabProps> = ({ communityId,
                                     position: 'relative'
                                 }}
                             >
-                                <Typography variant="body2">{msg.isDeleted ? <i>Deleted message</i> : msg.content}</Typography>
+                                <Typography variant="body2">{msg.isDeleted ? <i>{t('chat.deleted')}</i> : msg.content}</Typography>
                                 <Typography variant="caption" sx={{ display: 'block', textAlign: 'right', mt: 0.5, opacity: 0.7, fontSize: '0.65rem' }}>
                                     {msg.createdAt?.toDate ? format(msg.createdAt.toDate(), 'HH:mm') : 'Pending'}
                                 </Typography>
@@ -149,8 +151,13 @@ export const CommunityChatTab: React.FC<CommunityChatTabProps> = ({ communityId,
                                 {(isMe || isAdmin) && !msg.isDeleted && (
                                     <IconButton
                                         size="small"
-                                        sx={{ position: 'absolute', top: -10, right: -10, bgcolor: 'background.paper', boxShadow: 1, width: 20, height: 20, display: 'none', '&:hover': { display: 'flex' } }}
-                                        className="delete-btn" // Hover logic hard via inline styles, maybe simplified: Long press or just click bubble?
+                                        sx={{
+                                            position: 'absolute', top: -10, right: -10,
+                                            bgcolor: 'background.paper', boxShadow: 1,
+                                            width: 22, height: 22,
+                                            opacity: 0.35,
+                                            '&:hover': { opacity: 1, bgcolor: 'error.50' }
+                                        }}
                                         onClick={() => handleDelete(msg.id)}
                                     >
                                         <Trash2 size={12} color="red" />
@@ -167,7 +174,7 @@ export const CommunityChatTab: React.FC<CommunityChatTabProps> = ({ communityId,
                 <TextField
                     fullWidth
                     size="small"
-                    placeholder={!user ? "Sign in to chat..." : "Type a message..."}
+                    placeholder={!user ? t('chat.signInPrompt') : t('chat.placeholder')}
                     value={inputText}
                     onChange={(e) => setInputText(e.target.value)}
                     onKeyDown={(e) => {

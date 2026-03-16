@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     Box,
     Typography,
@@ -15,7 +16,7 @@ import {
 } from '@mui/material';
 import { Search, Plus, Users, Shield, Globe2, Ticket } from 'lucide-react';
 import {
-    Dialog, DialogTitle, DialogContent, DialogActions, DialogContentText
+    Dialog, DialogTitle, DialogContent, DialogActions
 } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
 import { communityService } from '../../services/communityService';
@@ -28,6 +29,7 @@ interface CommunityListPageProps {
 }
 
 export const CommunityListPage: React.FC<CommunityListPageProps> = ({ onNavigate }) => {
+    const { t } = useTranslation();
     const { user } = useAuth();
     const [tab, setTab] = useState(0);
     const [search, setSearch] = useState('');
@@ -155,7 +157,7 @@ export const CommunityListPage: React.FC<CommunityListPageProps> = ({ onNavigate
             <Box sx={{ p: 2, bgcolor: 'background.paper', position: 'sticky', top: 0, zIndex: 10, boxShadow: 1 }}>
 
                 <Typography variant="h5" fontWeight="bold" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1, flexGrow: 1 }}>
-                    <Users className="text-orange-600" /> Communities
+                    <Users className="text-orange-600" /> {t('communities.title')}
                 </Typography>
                 <Button
                     size="small"
@@ -163,12 +165,12 @@ export const CommunityListPage: React.FC<CommunityListPageProps> = ({ onNavigate
                     onClick={() => setInviteDialogOpen(true)}
                     sx={{ position: 'absolute', right: 16, top: 16 }}
                 >
-                    Have a code?
+                    {t('communities.haveCode')}
                 </Button>
 
                 <TextField
                     fullWidth
-                    placeholder="Search communities..."
+                    placeholder={t('communities.searchPlaceholder')}
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     size="small"
@@ -184,8 +186,8 @@ export const CommunityListPage: React.FC<CommunityListPageProps> = ({ onNavigate
                     variant="fullWidth"
                     sx={{ mt: 2, borderBottom: 1, borderColor: 'divider' }}
                 >
-                    <Tab label="My Communities" />
-                    <Tab label="Discover" />
+                    <Tab label={t('communities.myTab')} />
+                    <Tab label={t('communities.discoverTab')} />
                 </Tabs>
             </Box>
 
@@ -218,8 +220,8 @@ export const CommunityListPage: React.FC<CommunityListPageProps> = ({ onNavigate
                                 {tab === 0 && filteredMy.length === 0 && (
                                     <Box sx={{ width: '100%', textAlign: 'center', mt: 4, opacity: 0.7 }}>
                                         <Users size={48} style={{ marginBottom: 16 }} />
-                                        <Typography>You haven't joined any communities yet.</Typography>
-                                        <Button onClick={() => setTab(1)} sx={{ mt: 1 }}>Discover New Groups</Button>
+                                        <Typography>{t('communities.noJoined')}</Typography>
+                                        <Button onClick={() => setTab(1)} sx={{ mt: 1 }}>{t('communities.discoverHeading')}</Button>
                                     </Box>
                                 )}
                             </Stack>
@@ -241,26 +243,23 @@ export const CommunityListPage: React.FC<CommunityListPageProps> = ({ onNavigate
 
             {/* Invite Code Dialog */}
             <Dialog open={inviteDialogOpen} onClose={() => setInviteDialogOpen(false)}>
-                <DialogTitle>Join with Invite Code</DialogTitle>
+                <DialogTitle>{t('communities.joinWithCode')}</DialogTitle>
                 <DialogContent>
-                    <DialogContentText sx={{ mb: 2 }}>
-                        Enter the 6-character code shared by the community admin.
-                    </DialogContentText>
                     <TextField
                         autoFocus
                         margin="dense"
-                        label="Invite Code"
+                        label={t('communities.joinWithCode')}
                         fullWidth
                         variant="outlined"
                         value={inviteCode}
                         onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-                        inputProps={{ maxLength: 6, style: { fontFamily: 'monospace', letterSpacing: 4, textAlign: 'center' } }}
+                        inputProps={{ maxLength: 10, style: { fontFamily: 'monospace', letterSpacing: 4, textAlign: 'center' } }}
                     />
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setInviteDialogOpen(false)}>Cancel</Button>
+                    <Button onClick={() => setInviteDialogOpen(false)}>{t('communities.cancel')}</Button>
                     <Button onClick={handleJoinWithCode} variant="contained" disabled={joining || inviteCode.length < 3}>
-                        {joining ? "Joining..." : "Join Community"}
+                        {joining ? t('communities.joining') : t('communities.join')}
                     </Button>
                 </DialogActions>
             </Dialog>
@@ -269,6 +268,7 @@ export const CommunityListPage: React.FC<CommunityListPageProps> = ({ onNavigate
 };
 
 const CommunityCard: React.FC<{ community: Community, onClick: () => void, isJoined: boolean, hasUnread?: boolean }> = ({ community, onClick, isJoined, hasUnread }) => {
+    const { t } = useTranslation();
     return (
         <Card
             onClick={onClick}
@@ -317,14 +317,14 @@ const CommunityCard: React.FC<{ community: Community, onClick: () => void, isJoi
                     {community.name}
                 </Typography>
                 <Typography variant="caption" color="text.secondary" noWrap sx={{ mb: 1 }}>
-                    {community.membersCount} members · {community.totalMalas} malas
+                    {community.membersCount} {t('communities.members')} · {community.totalMalas} {t('communities.malas')}
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 0.5 }}>
                     {community.isPrivate && (
-                        <Chip icon={<Shield size={12} />} label="Private" size="small" variant="outlined" sx={{ height: 20, fontSize: '0.65rem' }} />
+                        <Chip icon={<Shield size={12} />} label={t('communities.private')} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.65rem' }} />
                     )}
                     {isJoined && (
-                        <Chip label="Joined" size="small" color="secondary" sx={{ height: 20, fontSize: '0.65rem' }} />
+                        <Chip label={t('communities.joined')} size="small" color="secondary" sx={{ height: 20, fontSize: '0.65rem' }} />
                     )}
                 </Box>
             </Box>

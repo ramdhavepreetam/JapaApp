@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Button, Dialog, DialogTitle, DialogContent, Box, Typography, TextField, CircularProgress, Alert } from '@mui/material';
-import { Favorite } from '@mui/icons-material';
+import { Heart } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { donationService } from '../services/donationService';
 
@@ -39,7 +39,6 @@ export const DonateButton: React.FC<DonateButtonProps> = ({ variant = 'contained
         onSuccess: () => {
           setLoading(false);
           setOpen(false);
-          // Optional: Show a success toast or alert via context
           console.log('Donation successful!');
         },
         onError: (err: any) => {
@@ -55,30 +54,30 @@ export const DonateButton: React.FC<DonateButtonProps> = ({ variant = 'contained
 
   return (
     <>
-      <Button 
-        variant={variant} 
-        size={size} 
+      <Button
+        variant={variant}
+        size={size}
         fullWidth={fullWidth}
         onClick={() => setOpen(true)}
-        startIcon={<Favorite />}
+        startIcon={<Heart size={18} />}
         sx={{
-          bgcolor: variant === 'contained' ? '#F59E0B' : undefined,
-          color: variant === 'contained' ? 'white' : '#F59E0B',
-          '&:hover': variant === 'contained' ? { bgcolor: '#D97706' } : undefined
+          bgcolor: variant === 'contained' ? 'warning.main' : undefined,
+          color: variant === 'contained' ? 'white' : 'warning.main',
+          '&:hover': variant === 'contained' ? { bgcolor: 'warning.dark' } : undefined
         }}
       >
         Donate
       </Button>
 
       <Dialog open={open} onClose={() => !loading && setOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ textAlign: 'center', fontWeight: 'bold', color: '#F59E0B' }}>
+        <DialogTitle sx={{ textAlign: 'center', fontWeight: 'bold', color: 'warning.main' }}>
           Support JapaApp
         </DialogTitle>
         <DialogContent>
           {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-          
+
           <Typography variant="body1" textAlign="center" mb={3}>
-            Your contribution helps keep JapaApp ad-free and supports the development of new spiritual features.
+            Your contribution helps keep JapaApp running and supports the development of new spiritual features.
           </Typography>
 
           <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', mb: 3 }}>
@@ -88,12 +87,12 @@ export const DonateButton: React.FC<DonateButtonProps> = ({ variant = 'contained
                 variant={amount === preset ? 'contained' : 'outlined'}
                 onClick={() => setAmount(preset)}
                 sx={{
-                  bgcolor: amount === preset ? '#4338CA' : 'transparent',
-                  color: amount === preset ? 'white' : '#4338CA',
-                  borderColor: '#4338CA',
+                  bgcolor: amount === preset ? 'secondary.main' : 'transparent',
+                  color: amount === preset ? 'white' : 'secondary.main',
+                  borderColor: 'secondary.main',
                   '&:hover': {
-                    bgcolor: amount === preset ? '#3730A3' : 'rgba(67, 56, 202, 0.04)',
-                    borderColor: '#3730A3',
+                    bgcolor: amount === preset ? 'secondary.dark' : 'rgba(136,19,55,0.04)',
+                    borderColor: 'secondary.dark',
                   }
                 }}
               >
@@ -118,7 +117,7 @@ export const DonateButton: React.FC<DonateButtonProps> = ({ variant = 'contained
             size="large"
             disabled={loading || !authUser || amount <= 0}
             onClick={handleDonate}
-            sx={{ bgcolor: '#F59E0B', '&:hover': { bgcolor: '#D97706' }, color: 'white' }}
+            sx={{ bgcolor: 'warning.main', '&:hover': { bgcolor: 'warning.dark' }, color: 'white' }}
           >
             {loading ? <CircularProgress size={24} color="inherit" /> : `Donate ₹${amount}`}
           </Button>

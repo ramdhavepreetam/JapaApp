@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     Box, Typography, TextField, Button, Card, CardHeader, CardContent,
     CardActions, Avatar, IconButton, Switch, FormControlLabel,
@@ -17,6 +18,7 @@ interface CommunityFeedTabProps {
 }
 
 export const CommunityFeedTab: React.FC<CommunityFeedTabProps> = ({ communityId, currentUserRole }) => {
+    const { t } = useTranslation();
     const { user } = useAuth();
     const [posts, setPosts] = useState<CommunityPost[]>([]);
     const [loading, setLoading] = useState(true);
@@ -75,7 +77,7 @@ export const CommunityFeedTab: React.FC<CommunityFeedTabProps> = ({ communityId,
     const isAdminOrOwner = currentUserRole === 'admin' || currentUserRole === 'owner';
 
     return (
-        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: '#f5f5f5' }}>
+        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
             {user && (
                 <Box sx={{ p: 2, bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider' }}>
                     <Stack direction="row" spacing={2} alignItems="flex-start">
@@ -85,17 +87,17 @@ export const CommunityFeedTab: React.FC<CommunityFeedTabProps> = ({ communityId,
                                 fullWidth
                                 multiline
                                 maxRows={4}
-                                placeholder="Share something with the community..."
+                                placeholder={t('feed.placeholder')}
                                 value={content}
                                 onChange={(e) => setContent(e.target.value)}
-                                variant="standard"
-                                InputProps={{ disableUnderline: true }}
+                                variant="outlined"
+                                size="small"
                             />
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}>
                                 {isAdminOrOwner && (
                                     <FormControlLabel
                                         control={<Switch size="small" checked={isAnnouncement} onChange={(e) => setIsAnnouncement(e.target.checked)} />}
-                                        label={<Typography variant="caption" fontWeight="bold" color="primary">Announcement</Typography>}
+                                        label={<Typography variant="caption" fontWeight="bold" color="primary">{t('feed.announcement')}</Typography>}
                                     />
                                 )}
                                 <Box sx={{ ml: 'auto' }}>
@@ -107,7 +109,7 @@ export const CommunityFeedTab: React.FC<CommunityFeedTabProps> = ({ communityId,
                                         onClick={handleCreatePost}
                                         sx={{ borderRadius: 4, textTransform: 'none' }}
                                     >
-                                        Post
+                                        {t('feed.post')}
                                     </Button>
                                 </Box>
                             </Box>
@@ -123,7 +125,7 @@ export const CommunityFeedTab: React.FC<CommunityFeedTabProps> = ({ communityId,
                     </Box>
                 ) : posts.length === 0 ? (
                     <Typography align="center" color="text.secondary" sx={{ mt: 4 }}>
-                        No posts yet. Be the first to share!
+                        {t('feed.empty')}
                     </Typography>
                 ) : (
                     posts.map(post => (
@@ -149,6 +151,7 @@ const PostItem: React.FC<{
     onDelete: () => void;
     onLikeToggle: () => void;
 }> = ({ post, currentUserId, isAdmin, onDelete }) => {
+    const { t } = useTranslation();
     const [likes, setLikes] = useState(post.likesCount);
     const [liked, setLiked] = useState(false); // In a real app we'd check if user liked it from subcollection or cache
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -179,7 +182,7 @@ const PostItem: React.FC<{
         <Card sx={{ mb: 2, borderRadius: 3, boxShadow: 1, border: isAnnouncement ? '1px solid' : 'none', borderColor: 'primary.main' }}>
             {isAnnouncement && (
                 <Box sx={{ bgcolor: 'primary.main', color: 'white', px: 2, py: 0.5 }}>
-                    <Typography variant="caption" fontWeight="bold">ANNOUNCEMENT</Typography>
+                    <Typography variant="caption" fontWeight="bold">{t('feed.announcementLabel')}</Typography>
                 </Box>
             )}
             <CardHeader
@@ -196,7 +199,7 @@ const PostItem: React.FC<{
                                 onClose={() => setAnchorEl(null)}
                             >
                                 <MenuItem onClick={() => { onDelete(); setAnchorEl(null); }} sx={{ color: 'error.main' }}>
-                                    <Trash2 size={16} style={{ marginRight: 8 }} /> Delete
+                                    <Trash2 size={16} style={{ marginRight: 8 }} /> {t('feed.delete')}
                                 </MenuItem>
                             </Menu>
                         </>

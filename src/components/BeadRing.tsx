@@ -18,8 +18,8 @@ export const BeadRing: React.FC<BeadRingProps> = ({ count }) => {
     // We start from top ( -90 degrees)
 
     return (
-        <div className="relative w-80 h-80 flex items-center justify-center mx-auto">
-            <svg width="320" height="320" viewBox="0 0 320 320" className="rotate-[-90deg]">
+        <div className="relative w-full max-w-[320px] aspect-square flex items-center justify-center mx-auto">
+            <svg width="100%" height="100%" viewBox="0 0 320 320" className="rotate-[-90deg]">
                 {beads.map((_, index) => {
                     const angle = (index / 108) * 360;
                     const radian = (angle * Math.PI) / 180;
@@ -54,7 +54,8 @@ export const BeadRing: React.FC<BeadRingProps> = ({ count }) => {
                     key={count}
                     initial={{ scale: 0.8, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
-                    className="text-7xl font-serif font-bold text-saffron-600 drop-shadow-sm"
+                    className="text-7xl font-bold text-saffron-600 drop-shadow-sm"
+                    style={{ fontFamily: '"Playfair Display", serif' }}
                 >
                     {count}
                 </motion.div>

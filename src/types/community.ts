@@ -30,6 +30,8 @@ export interface Community {
 export interface CommunityMember {
     uid: string;
     communityId: string;
+    displayName?: string;  // Denormalized for display without extra fetches
+    photoURL?: string;
     role: UserRole;
     joinedAt: Timestamp;
     totalMalas: number; // Contributed to this community

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'framer-motion';
 import { JapaCounter } from './components/JapaCounter';
 import { ReportView } from './components/ReportView';
@@ -8,7 +9,7 @@ import { CommunityListPage } from './components/pages/CommunityListPage';
 import { CommunityCreatePage } from './components/pages/CommunityCreatePage';
 import { CommunityHomePage } from './components/pages/CommunityHomePage';
 import { NotificationsPage } from './components/pages/NotificationsPage';
-import { Globe2, Home, User, Users, Bell, Shield } from 'lucide-react';
+import { Flame, Home, User, Users, Bell, Shield } from 'lucide-react';
 import { Pledge } from './types/pledge';
 import { Box, Paper, BottomNavigation, BottomNavigationAction, IconButton, Badge } from '@mui/material';
 import { CommunityProvider } from './contexts/CommunityContext';
@@ -22,6 +23,12 @@ const AdminPanel = lazy(() => import('./admin/AdminPanel').then(m => ({ default:
 function App() {
     // Auth
     const { authUser } = useAuth();
+    const { t, i18n } = useTranslation();
+
+    // Apply lang attribute to <html> for CSS :lang() selector
+    useEffect(() => {
+        document.documentElement.lang = i18n.language?.startsWith('hi') ? 'hi' : 'en';
+    }, [i18n.language]);
     
     // Extended View State
     const [view, setView] = useState<'counter' | 'report' | 'pledges' | 'communities' | 'profile' | 'community-create' | 'community-home' | 'notifications' | 'admin'>('counter');
@@ -212,7 +219,7 @@ function App() {
                                 transition={{ type: 'spring', damping: 25, stiffness: 200 }}
                                 style={{ width: '100%', height: '100%', position: 'absolute', top: 0, zIndex: 100, backgroundColor: 'white' }}
                             >
-                                <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>Loading Admin...</Box>}>
+                                <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>{t('nav.admin')}...</Box>}>
                                     <AdminPanel onBack={() => setView('profile')} />
                                 </Suspense>
                             </motion.div>
@@ -231,12 +238,12 @@ function App() {
                             }}
                             sx={{ height: 80, pb: 2 }}
                         >
-                            <BottomNavigationAction label="Counter" value="counter" icon={<Home />} />
-                            <BottomNavigationAction label="Pledges" value="pledges" icon={<Globe2 />} />
-                            <BottomNavigationAction label="Groups" value="communities" icon={<Users />} />
-                            <BottomNavigationAction label="Profile" value="profile" icon={<User />} />
+                            <BottomNavigationAction label={t('nav.counter')} value="counter" icon={<Home />} />
+                            <BottomNavigationAction label={t('nav.pledges')} value="pledges" icon={<Flame />} />
+                            <BottomNavigationAction label={t('nav.groups')} value="communities" icon={<Users />} />
+                            <BottomNavigationAction label={t('nav.profile')} value="profile" icon={<User />} />
                             {authUser?.role === 'superadmin' && (
-                                <BottomNavigationAction label="Admin" value="admin" icon={<Shield />} />
+                                <BottomNavigationAction label={t('nav.admin')} value="admin" icon={<Shield />} />
                             )}
                         </BottomNavigation>
                     </Paper>

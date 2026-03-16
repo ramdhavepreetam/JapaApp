@@ -87,8 +87,8 @@ export const AdminCommunitiesTab: React.FC = () => {
         <Typography variant="h6">Manage Communities</Typography>
       </Box>
 
-      <TableContainer component={Paper}>
-        <Table size="small">
+      <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
+        <Table size="small" sx={{ minWidth: 580 }}>
           <TableHead>
             <TableRow sx={{ bgcolor: 'grey.100' }}>
               <TableCell width={50}></TableCell>

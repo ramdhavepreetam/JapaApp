@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Volume2, VolumeX, RotateCcw, History, Sparkles, Target, Users, Play, Pause, RotateCw, WifiOff, Wifi } from 'lucide-react';
 import { storage, StorageSchema, PendingSyncItem } from '../lib/storage';
@@ -30,6 +31,7 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
     onSaved,
     mantra = activePledge?.mantra
 }) => {
+    const { t } = useTranslation();
     const { user } = useAuth();
     const { myPledges, refresh: refreshPledges } = useCommunity();
     const [data, setData] = useState<StorageSchema>(storage.get());
@@ -169,12 +171,12 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
     const handleTap = async () => {
         // Prevent interaction if session not active/paused logic is desired
         if (!data.session.active) {
-            setFeedback("Start a session to begin 🙏");
+            setFeedback(t('counter.startPrompt'));
             setTimeout(() => setFeedback(null), 2000);
             return;
         }
         if (data.session.paused) {
-            setFeedback("Session paused");
+            setFeedback(t('counter.paused'));
             setTimeout(() => setFeedback(null), 2000);
             return;
         }
@@ -188,9 +190,9 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
         if (result.malaCompleted) {
             triggerHaptic(400);
 
-            const msg = mode === 'community' ? "Mala Offered to Community! 🌺"
-                : mode === 'pledge' ? "Contribution Sent! 🚩"
-                    : "Mala Completed! 🕉️";
+            const msg = mode === 'community' ? t('counter.malaOffered')
+                : mode === 'pledge' ? t('counter.contributionSent')
+                    : t('counter.malaCompleted');
 
             setFeedback(msg);
             setTimeout(() => setFeedback(null), 3000);
@@ -228,9 +230,9 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
         e.stopPropagation();
         if (confirm("Reset today's progress?")) { setData({ ...storage.resetToday() }); }
     };
-    const handleStartSession = () => { setData({ ...storage.startSession() }); setFeedback("Session started"); setTimeout(() => setFeedback(null), 2000); };
-    const handlePauseSession = () => { setData({ ...storage.pauseSession() }); setFeedback("Session paused"); setTimeout(() => setFeedback(null), 2000); };
-    const handleResumeSession = () => { setData({ ...storage.resumeSession() }); setFeedback("Session resumed"); setTimeout(() => setFeedback(null), 2000); };
+    const handleStartSession = () => { setData({ ...storage.startSession() }); setFeedback(t('counter.startSession')); setTimeout(() => setFeedback(null), 2000); };
+    const handlePauseSession = () => { setData({ ...storage.pauseSession() }); setFeedback(t('counter.paused')); setTimeout(() => setFeedback(null), 2000); };
+    const handleResumeSession = () => { setData({ ...storage.resumeSession() }); setFeedback(t('counter.resume')); setTimeout(() => setFeedback(null), 2000); };
 
     const handleResetSession = async () => {
         if (!data.session.active && data.session.counts === 0) return;
@@ -282,7 +284,7 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
             onClick={handleTap}
         >
             {/* Header / Top Bar */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2, zIndex: 10, pointerEvents: 'none' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pl: 2, pr: 8, py: 2, zIndex: 10, pointerEvents: 'none' }}>
                 <Box sx={{ display: 'flex', gap: 1, pointerEvents: 'auto' }}>
                     <IconButton
                         onClick={(e) => { e.stopPropagation(); setSoundEnabled(!soundEnabled); }}
@@ -308,7 +310,7 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
                         startIcon={<History size={20} />}
                         sx={{ borderRadius: 28, borderWidth: 2, '&:hover': { borderWidth: 2 } }}
                     >
-                        History
+                        {t('counter.history')}
                     </Button>
                 </Box>
             </Box>
@@ -319,7 +321,7 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
                 <Box sx={{ position: 'absolute', top: 88, left: 16, display: 'flex', gap: 1, zIndex: 6 }}>
                     <Chip
                         icon={isOnline ? <Wifi size={14} /> : <WifiOff size={14} />}
-                        label={isOnline ? 'Online' : 'Offline'}
+                        label={isOnline ? t('counter.online') : t('counter.offline')}
                         size="small"
                         sx={{ bgcolor: isOnline ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: isOnline ? '#047857' : '#b91c1c' }}
                     />
@@ -425,12 +427,12 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
                     {/* Today's malas */}
                     <Box sx={{ textAlign: 'center' }}>
                         <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 2, fontWeight: 700, display: 'block' }}>
-                            Today
+                            {t('counter.today')}
                         </Typography>
                         <Typography variant="h3" color="primary.main" sx={{ lineHeight: 1 }}>
                             {data.history[new Date().toISOString().split('T')[0]]?.malas || 0}
                         </Typography>
-                        <Typography variant="caption" color="text.secondary">malas</Typography>
+                        <Typography variant="caption" color="text.secondary">{t('counter.malas')}</Typography>
                     </Box>
 
                     {/* Divider */}
@@ -439,12 +441,12 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
                     {/* Lifetime malas — uses totalMalas which never resets */}
                     <Box sx={{ textAlign: 'center' }}>
                         <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 2, fontWeight: 700, display: 'block' }}>
-                            Lifetime
+                            {t('counter.lifetime')}
                         </Typography>
                         <Typography variant="h3" color="secondary.main" sx={{ lineHeight: 1 }}>
                             {data.totalMalas}
                         </Typography>
-                        <Typography variant="caption" color="text.secondary">malas</Typography>
+                        <Typography variant="caption" color="text.secondary">{t('counter.malas')}</Typography>
                     </Box>
                 </Box>
 
@@ -475,7 +477,7 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
                             onClick={(e) => { e.stopPropagation(); handleStartSession(); }}
                             sx={{ borderRadius: 8, px: 4 }}
                         >
-                            Start Session
+                            {t('counter.startSession')}
                         </Button>
                     ) : (
                         <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', justifyContent: 'center' }}>
@@ -484,21 +486,21 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
                                     variant="contained" color="primary" startIcon={<Play size={18} />}
                                     onClick={(e) => { e.stopPropagation(); handleResumeSession(); }}
                                 >
-                                    Resume
+                                    {t('counter.resume')}
                                 </Button>
                             ) : (
                                 <Button
                                     variant="outlined" color="secondary" startIcon={<Pause size={18} />}
                                     onClick={(e) => { e.stopPropagation(); handlePauseSession(); }}
                                 >
-                                    Pause
+                                    {t('counter.pause')}
                                 </Button>
                             )}
                             <Button
                                 variant="outlined" color="error" startIcon={<RotateCw size={18} />}
                                 onClick={(e) => { e.stopPropagation(); handleResetSession(); }}
                             >
-                                Reset Session
+                                {t('counter.resetSession')}
                             </Button>
                         </Box>
                     )}
@@ -509,11 +511,11 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
                         disabled={!data.session.active || data.session.paused}
                         sx={{ borderRadius: 8, px: 4 }}
                     >
-                        Add Chant
+                        {t('counter.addChant')}
                     </Button>
 
                     <Typography variant="body2" color="text.secondary" sx={{ opacity: 0.7, fontStyle: 'italic' }}>
-                        {data.session.active ? `Session total: ${data.session.counts} chants · ${data.session.malas} malas` : 'Start a session to begin'}
+                        {data.session.active ? t('counter.sessionTotal', { malas: data.session.malas }) : t('counter.startPrompt')}
                     </Typography>
                 </Box>
             </Box>

@@ -63,6 +63,8 @@ export const communityService = {
                 const memberData: CommunityMember = {
                     uid: payload.creator.uid,
                     communityId: commRef.id,
+                    displayName: payload.creator.displayName || '',
+                    photoURL: payload.creator.photoURL || '',
                     role: 'owner',
                     joinedAt: Timestamp.now(),
                     totalMalas: 0,
@@ -239,6 +241,8 @@ export const communityService = {
                 batch.set(memberRef, {
                     uid: userProfile.uid,
                     communityId: communityId,
+                    displayName: userProfile.displayName || '',
+                    photoURL: userProfile.photoURL || '',
                     role: 'member',
                     joinedAt: serverTimestamp(),
                     totalMalas: 0,
@@ -346,6 +350,8 @@ export const communityService = {
                 batch.set(memberRef, {
                     uid: userProfile.uid,
                     communityId: communityId,
+                    displayName: userProfile.displayName || '',
+                    photoURL: userProfile.photoURL || '',
                     role: 'member',
                     joinedAt: serverTimestamp(),
                     totalMalas: 0,
@@ -377,15 +383,16 @@ export const communityService = {
         const reqSnap = await getDoc(reqRef);
         if (!reqSnap.exists()) throw new Error("Request not found");
 
-        // const reqData = reqSnap.data() as JoinRequest;
-
         const batch = writeBatch(db);
 
-        // Create member
+        // Create member — displayName/photoURL come from the join request
+        const reqData = reqSnap.data() as JoinRequest;
         const memberRef = doc(db, 'community_members', `${communityId}_${memberUid}`);
         batch.set(memberRef, {
             uid: memberUid,
             communityId: communityId,
+            displayName: reqData.user?.displayName || '',
+            photoURL: reqData.user?.photoURL || '',
             role: 'member',
             joinedAt: serverTimestamp(),
             totalMalas: 0,

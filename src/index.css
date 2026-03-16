@@ -6,6 +6,11 @@
   font-family: 'Inter', system-ui, sans-serif;
 }
 
+/* Hindi language support */
+:lang(hi), [lang="hi"] {
+  font-family: 'Noto Sans Devanagari', 'Inter', system-ui, sans-serif;
+}
+
 /* Custom Scrollbar for a cleaner look */
 ::-webkit-scrollbar {
   width: 6px;

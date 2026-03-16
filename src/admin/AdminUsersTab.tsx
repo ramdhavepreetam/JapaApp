@@ -105,8 +105,8 @@ export const AdminUsersTab: React.FC = () => {
         />
       </Box>
 
-      <TableContainer component={Paper}>
-        <Table size="small">
+      <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
+        <Table size="small" sx={{ minWidth: 560 }}>
           <TableHead>
             <TableRow sx={{ bgcolor: 'grey.100' }}>
               <TableCell>User</TableCell>

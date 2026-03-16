@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Pledge } from '../types/pledge';
 import { Users, Target, Edit2, Trash2 } from 'lucide-react';
 import { Card, CardContent, Typography, Button, Box, LinearProgress, Chip, IconButton, Tooltip } from '@mui/material';
@@ -24,6 +25,7 @@ export const PledgeCard: React.FC<PledgeCardProps> = ({
     onEdit,
     onDelete
 }) => {
+    const { t } = useTranslation();
     // Global Progress
     const progress = Math.min(100, Math.round((pledge.currentMalas / pledge.targetMalas) * 100));
 
@@ -33,20 +35,21 @@ export const PledgeCard: React.FC<PledgeCardProps> = ({
             onClick={() => onJoin(pledge)}
             sx={{
                 position: 'relative',
-                border: isJoined ? '2px solid #EA580C' : '1px solid rgba(0,0,0,0.08)',
+                border: isJoined ? '2px solid' : '1px solid rgba(0,0,0,0.08)',
+                borderColor: isJoined ? 'primary.main' : 'transparent',
                 transition: 'all 0.2s',
                 cursor: 'pointer',
-                overflow: 'visible', // Ensure content isn't clipped
+                overflow: 'visible',
                 '&:hover': {
                     transform: 'translateY(-2px)',
                     boxShadow: 4,
-                    borderColor: '#F97316'
+                    borderColor: 'primary.light'
                 }
             }}
         >
             {isJoined && (
                 <Chip
-                    label="Joined"
+                    label={t('pledge.joined')}
                     color="primary"
                     size="small"
                     sx={{ position: 'absolute', top: 12, right: 12, fontWeight: 'bold', zIndex: 1 }}
@@ -56,7 +59,7 @@ export const PledgeCard: React.FC<PledgeCardProps> = ({
             {/* Management Controls */}
             {canManage && (
                 <Box sx={{ position: 'absolute', top: 12, right: isJoined ? 80 : 12, zIndex: 2, display: 'flex', gap: 1 }}>
-                    <Tooltip title="Edit Cause">
+                    <Tooltip title={t('pledge.editCause')}>
                         <IconButton
                             size="small"
                             onClick={(e) => {
@@ -68,7 +71,7 @@ export const PledgeCard: React.FC<PledgeCardProps> = ({
                             <Edit2 size={16} color="#666" />
                         </IconButton>
                     </Tooltip>
-                    <Tooltip title="Delete Cause">
+                    <Tooltip title={t('pledge.deleteCause')}>
                         <IconButton
                             size="small"
                             onClick={(e) => {
@@ -110,12 +113,12 @@ export const PledgeCard: React.FC<PledgeCardProps> = ({
 
                 {/* Personal Stats Section */}
                 {isJoined && myContribution !== undefined && (
-                    <Box sx={{ mb: 2, p: 1.5, bgcolor: 'primary.50', borderRadius: 2, border: '1px solid', borderColor: 'primary.100' }}>
+                    <Box sx={{ mb: 2, p: 1.5, bgcolor: '#FFF7ED', borderRadius: 2, border: '1px solid', borderColor: '#FFEDD5' }}>
                         <Typography variant="subtitle2" color="primary.dark" fontWeight="bold">
-                            My Contribution
+                            {t('pledge.myContribution')}
                         </Typography>
                         <Typography variant="h4" color="primary.main" fontWeight="bold">
-                            {myContribution} <Typography component="span" variant="body2" color="text.secondary">Malas</Typography>
+                            {myContribution} <Typography component="span" variant="body2" color="text.secondary">{t('pledge.malas')}</Typography>
                         </Typography>
                     </Box>
                 )}
@@ -124,10 +127,10 @@ export const PledgeCard: React.FC<PledgeCardProps> = ({
                 <Box sx={{ mt: 2 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                         <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <Target size={14} /> Global: {pledge.currentMalas} / {pledge.targetMalas}
+                            <Target size={14} /> {t('pledge.global')} {pledge.currentMalas} / {pledge.targetMalas}
                         </Typography>
                         <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <Users size={14} /> {pledge.participants} joined
+                            <Users size={14} /> {pledge.participants} {t('pledge.joinedCount')}
                         </Typography>
                     </Box>
                     <LinearProgress
@@ -149,17 +152,10 @@ export const PledgeCard: React.FC<PledgeCardProps> = ({
                         }}
                         sx={{ mt: 2 }}
                     >
-                        {isJoined ? "Continue Chanting" : "Join This Cause"}
+                        {isJoined ? t('pledge.continueChanting') : t('pledge.joinCause')}
                     </Button>
                 )}
 
-                {/* Creator sees Edit/Delete but still might want to see 'Continue Chanting' if they participate? 
-                    Yes, creator is also a participant usually. 
-                    Let's Keep the main button but maybe adjust if they canManage.
-                    Actually the user requested: "only user who created the Start Cause can delete modify and save it. Other user's ... can not modify that."
-                    It doesn't say creator can't contribute. Creator usually auto-joins.
-                    So we should keep the Join/Continue button even for creator.
-                 */}
                 {canManage && (
                     <Button
                         fullWidth
@@ -171,7 +167,7 @@ export const PledgeCard: React.FC<PledgeCardProps> = ({
                         }}
                         sx={{ mt: 2 }}
                     >
-                        {isJoined ? "Continue Chanting" : "Join Your Cause"}
+                        {isJoined ? t('pledge.continueChanting') : t('pledge.joinYourCause')}
                     </Button>
                 )}
 
@@ -183,13 +179,13 @@ export const PledgeCard: React.FC<PledgeCardProps> = ({
                         color="error"
                         onClick={(e) => {
                             e.stopPropagation();
-                            if (window.confirm("Are you sure you want to leave this cause? Your progress will be reset.")) {
+                            if (window.confirm(t('pledge.leaveConfirm'))) {
                                 onLeave(pledge);
                             }
                         }}
                         sx={{ mt: 1, opacity: 0.7, '&:hover': { opacity: 1, bgcolor: 'error.50' } }}
                     >
-                        Leave Cause
+                        {t('pledge.leaveCause')}
                     </Button>
                 )}
             </CardContent>

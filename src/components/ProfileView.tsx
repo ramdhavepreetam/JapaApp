@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { LanguageToggle } from './LanguageToggle';
 import { Box, Typography, Avatar, Paper, IconButton, Button, CircularProgress } from '@mui/material';
 import { Settings, LogOut, Award, Flame, History } from 'lucide-react';
 import { useTheme } from '@mui/material/styles';
@@ -17,6 +19,7 @@ interface ProfileViewProps {
 }
 
 export const ProfileView: React.FC<ProfileViewProps> = ({ onSelectPledge, onNavigateToCommunity }) => {
+    const { t } = useTranslation();
     const theme = useTheme();
     const { user, logout, signInWithGoogle } = useAuth();
     const { myPledges, pledges, loading: loadingPledges, refresh } = useCommunity(); // Consume global cache
@@ -76,9 +79,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSelectPledge, onNavi
                 <Avatar sx={{ width: 80, height: 80, bgcolor: 'primary.light', mb: 3 }}>
                     <Settings size={40} />
                 </Avatar>
-                <Typography variant="h5" gutterBottom fontWeight="bold">Guest Mode</Typography>
+                <Typography variant="h5" gutterBottom fontWeight="bold">{t('profile.guestMode')}</Typography>
                 <Typography variant="body1" color="text.secondary" paragraph>
-                    Sign in to track your stats, join communities, and save your progress to the cloud.
+                    {t('profile.guestSignInPrompt')}
                 </Typography>
                 <Button
                     variant="contained"
@@ -86,8 +89,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSelectPledge, onNavi
                     onClick={signInWithGoogle}
                     sx={{ mt: 2, borderRadius: 8, px: 4 }}
                 >
-                    Sign In with Google
+                    {t('profile.signInGoogle')}
                 </Button>
+                <Box sx={{ mt: 3 }}>
+                    <LanguageToggle />
+                </Box>
             </Box>
         );
     }
@@ -140,24 +146,24 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSelectPledge, onNavi
                     {user.displayName?.[0] || 'S'}
                 </Avatar>
 
-                <Typography variant="h5" sx={{ fontWeight: 700, fontFamily: 'serif' }}>
+                <Typography variant="h5" sx={{ fontWeight: 700, fontFamily: '"Playfair Display", serif' }}>
                     {user.displayName || 'Sadhaka'}
                 </Typography>
                 <Typography variant="caption" sx={{ opacity: 0.8, letterSpacing: 1 }}>
-                    MEMBER SINCE {profile?.joinedAt ? new Date(profile.joinedAt.seconds * 1000).toLocaleDateString(undefined, { month: 'short', year: 'numeric' }) : '...'}
+                    {t('profile.memberSince')} {profile?.joinedAt ? new Date(profile.joinedAt.seconds * 1000).toLocaleDateString(undefined, { month: 'short', year: 'numeric' }) : '...'}
                 </Typography>
 
                 {/* Stats Row */}
                 <Box sx={{ display: 'flex', gap: 2, mt: 3, maxWidth: 400, width: '100%' }}>
-                    <Box sx={{ flex: 1, bgcolor: 'white/10', p: 2, borderRadius: 3, textAlign: 'center', backdropFilter: 'blur(4px)' }}>
+                    <Box sx={{ flex: 1, bgcolor: 'rgba(255,255,255,0.1)', p: 2, borderRadius: 3, textAlign: 'center', backdropFilter: 'blur(4px)' }}>
                         <Flame size={20} className="text-gold-400" style={{ marginBottom: 4, color: '#FCD34D' }} />
                         <Typography variant="h4" sx={{ fontWeight: 'bold' }}>{profile?.stats.streakDays || 0}</Typography>
-                        <Typography variant="caption" sx={{ opacity: 0.7 }}>DAY STREAK</Typography>
+                        <Typography variant="caption" sx={{ opacity: 0.7 }}>{t('profile.dayStreak')}</Typography>
                     </Box>
-                    <Box sx={{ flex: 1, bgcolor: 'white/10', p: 2, borderRadius: 3, textAlign: 'center', backdropFilter: 'blur(4px)' }}>
+                    <Box sx={{ flex: 1, bgcolor: 'rgba(255,255,255,0.1)', p: 2, borderRadius: 3, textAlign: 'center', backdropFilter: 'blur(4px)' }}>
                         <Award size={20} style={{ marginBottom: 4, color: '#FCD34D' }} />
                         <Typography variant="h4" sx={{ fontWeight: 'bold' }}>{profile?.stats.totalMalas || 0}</Typography>
-                        <Typography variant="caption" sx={{ opacity: 0.7 }}>TOTAL MALAS</Typography>
+                        <Typography variant="caption" sx={{ opacity: 0.7 }}>{t('profile.totalMalas')}</Typography>
                     </Box>
                 </Box>
             </Paper>
@@ -165,7 +171,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSelectPledge, onNavi
             {/* Active Pledges */}
             <Box sx={{ px: 3, pb: 4 }}>
                 <Typography variant="h6" color="primary.dark" sx={{ mb: 2, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <History size={20} /> My Pledges
+                    <History size={20} /> {t('profile.myPledges')}
                 </Typography>
 
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -219,10 +225,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSelectPledge, onNavi
                     ) : (
                         <Paper sx={{ p: 3, textAlign: 'center', border: '1px dashed', borderColor: 'divider', bgcolor: 'transparent' }}>
                             <Typography variant="body2" color="text.secondary">
-                                You haven't joined any community pledges yet.
+                                {t('profile.noPledges')}
                             </Typography>
                             <Button variant="text" onClick={onNavigateToCommunity} sx={{ mt: 1 }}>
-                                Explore Community
+                                {t('profile.exploreCommunity')}
                             </Button>
                         </Paper>
                     )}
@@ -230,6 +236,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSelectPledge, onNavi
             </Box>
 
             <Box sx={{ p: 3, mt: 'auto', pb: 12 }}>
+                {/* Language Toggle */}
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    <Typography variant="body2" color="text.secondary">{t('profile.language')}</Typography>
+                    <LanguageToggle />
+                </Box>
                 <Button
                     variant="outlined"
                     color="error"
@@ -238,51 +249,53 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSelectPledge, onNavi
                     onClick={logout}
                     sx={{ borderRadius: 3, textTransform: 'none', borderColor: 'error.main' }}
                 >
-                    Sign Out
+                    {t('profile.signOut')}
                 </Button>
 
-                {/* DEV ONLY BUTTONS */}
-                <Button
-                    variant="outlined"
-                    color="warning"
-                    fullWidth
-                    onClick={async () => {
-                        if (window.confirm("This will clear all local demo data, queues, and offline caches. Proceed?")) {
-                            localStorage.clear();
-                            try {
-                                const dbs = await window.indexedDB.databases();
-                                dbs.forEach(db => {
-                                    if (db.name) window.indexedDB.deleteDatabase(db.name);
-                                });
-                                alert("Data cleared! Reloading...");
-                                window.location.reload();
-                            } catch (e) {
-                                alert("Failed to clear IndexedDB completely, but localStorage is cleared. Reloading...");
-                                window.location.reload();
-                            }
-                        }
-                    }}
-                    sx={{ mt: 2, borderRadius: 3, textTransform: 'none' }}
-                >
-                    [DEV ONLY] Clear Local Data
-                </Button>
-                
-                <Button
-                    variant="text"
-                    color="secondary"
-                    fullWidth
-                    onClick={() => {
-                        if (user) {
-                            import('firebase/firestore').then(({ doc, setDoc }) => {
-                                setDoc(doc(db, 'users', user.uid), { role: 'superadmin' }, { merge: true })
-                                    .then(() => alert('You are now a superadmin! The navigation bar will update shortly.'));
-                            });
-                        }
-                    }}
-                    sx={{ mt: 2, borderRadius: 3, textTransform: 'none' }}
-                >
-                    [DEV ONLY] Make Me Superadmin
-                </Button>
+                {import.meta.env.DEV && (
+                    <>
+                        <Button
+                            variant="outlined"
+                            color="warning"
+                            fullWidth
+                            onClick={async () => {
+                                if (window.confirm("This will clear all local demo data, queues, and offline caches. Proceed?")) {
+                                    localStorage.clear();
+                                    try {
+                                        const dbs = await window.indexedDB.databases();
+                                        dbs.forEach(db => {
+                                            if (db.name) window.indexedDB.deleteDatabase(db.name);
+                                        });
+                                        alert("Data cleared! Reloading...");
+                                        window.location.reload();
+                                    } catch (e) {
+                                        alert("Failed to clear IndexedDB completely, but localStorage is cleared. Reloading...");
+                                        window.location.reload();
+                                    }
+                                }
+                            }}
+                            sx={{ mt: 2, borderRadius: 3, textTransform: 'none' }}
+                        >
+                            [DEV] Clear Local Data
+                        </Button>
+                        <Button
+                            variant="text"
+                            color="secondary"
+                            fullWidth
+                            onClick={() => {
+                                if (user) {
+                                    import('firebase/firestore').then(({ doc, setDoc }) => {
+                                        setDoc(doc(db, 'users', user.uid), { role: 'superadmin' }, { merge: true })
+                                            .then(() => alert('You are now a superadmin! The navigation bar will update shortly.'));
+                                    });
+                                }
+                            }}
+                            sx={{ mt: 2, borderRadius: 3, textTransform: 'none' }}
+                        >
+                            [DEV] Make Me Superadmin
+                        </Button>
+                    </>
+                )}
             </Box>
         </Box>
     );

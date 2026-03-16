@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     Box, Typography, Avatar, List, ListItem, ListItemAvatar,
     ListItemText, IconButton, Chip, Tabs, Tab,
@@ -16,6 +17,7 @@ interface CommunityMembersTabProps {
 }
 
 export const CommunityMembersTab: React.FC<CommunityMembersTabProps> = ({ communityId, currentUserRole }) => {
+    const { t } = useTranslation();
     const { user } = useAuth();
     const [subTab, setSubTab] = useState(0); // 0: Members, 1: Requests
     const [members, setMembers] = useState<CommunityMember[]>([]);
@@ -62,8 +64,8 @@ export const CommunityMembersTab: React.FC<CommunityMembersTabProps> = ({ commun
         <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             {isAdmin && (
                 <Tabs value={subTab} onChange={(_, v) => setSubTab(v)} variant="fullWidth" sx={{ borderBottom: 1, borderColor: 'divider' }}>
-                    <Tab label={`Members (${members.length})`} />
-                    <Tab label={`Requests (${requests.length})`} />
+                    <Tab label={`${t('members.title')} (${members.length})`} />
+                    <Tab label={`${t('members.requests')} (${requests.length})`} />
                 </Tabs>
             )}
 
@@ -118,6 +120,7 @@ const MemberItem: React.FC<{
     communityId: string,
     refresh: () => void
 }> = ({ member, currentUserRole, currentUserId, communityId, refresh }) => {
+    const { t } = useTranslation();
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const isAdmin = currentUserRole === 'admin' || currentUserRole === 'owner';
     const isTargetOwner = member.role === 'owner';
@@ -134,7 +137,8 @@ const MemberItem: React.FC<{
 
     const handleAction = async (action: 'promote' | 'demote' | 'kick' | 'ban') => {
         setAnchorEl(null);
-        if (!confirm(`Are you sure you want to ${action}?`)) return;
+        const confirmMsg = action === 'promote' ? t('members.confirmPromote') : action === 'demote' ? t('members.confirmDemote') : action === 'kick' ? t('members.confirmKick') : t('members.confirmBan');
+        if (!confirm(confirmMsg)) return;
 
         try {
             if (action === 'promote') await communityService.updateMemberRole(communityId, member.uid, 'admin');
@@ -144,7 +148,7 @@ const MemberItem: React.FC<{
             refresh();
         } catch (e) {
             console.error(e);
-            alert("Action failed");
+            alert(t('members.actionFailed'));
         }
     };
 
@@ -161,34 +165,25 @@ const MemberItem: React.FC<{
                             open={Boolean(anchorEl)}
                             onClose={() => setAnchorEl(null)}
                         >
-                            {member.role === 'member' && <MenuItem onClick={() => handleAction('promote')}><Shield size={16} style={{ marginRight: 8 }} /> Promote to Admin</MenuItem>}
-                            {member.role === 'admin' && <MenuItem onClick={() => handleAction('demote')}><ShieldAlert size={16} style={{ marginRight: 8 }} /> Demote to Member</MenuItem>}
-                            <MenuItem onClick={() => handleAction('kick')} sx={{ color: 'error.main' }}><UserX size={16} style={{ marginRight: 8 }} /> Remove Member</MenuItem>
-                            <MenuItem onClick={() => handleAction('ban')} sx={{ color: 'error.main' }}>Ban User</MenuItem>
+                            {member.role === 'member' && <MenuItem onClick={() => handleAction('promote')}><Shield size={16} style={{ marginRight: 8 }} /> {t('members.promoteToAdmin')}</MenuItem>}
+                            {member.role === 'admin' && <MenuItem onClick={() => handleAction('demote')}><ShieldAlert size={16} style={{ marginRight: 8 }} /> {t('members.demoteToMember')}</MenuItem>}
+                            <MenuItem onClick={() => handleAction('kick')} sx={{ color: 'error.main' }}><UserX size={16} style={{ marginRight: 8 }} /> {t('members.removeMember')}</MenuItem>
+                            <MenuItem onClick={() => handleAction('ban')} sx={{ color: 'error.main' }}>{t('members.banUser')}</MenuItem>
                         </Menu>
                     </>
                 )
             }
         >
             <ListItemAvatar>
-                {/* We don't have display name in member object (optimization needed: likely need to join or store name in member doc) */}
-                {/* For this MVP, we rely on upstream or just generic content if name missing, BUT the types say CommunityMember.uid only. */}
-                {/* Wait, user profile is NOT in CommunityMember. */}
-                {/* We need to fetch user profile or store minimal profile in member. */}
-                {/* Checking types/community.ts: CommunityMember has { uid, ... }. No displayName. */}
-                {/* This is a common issue. I will assume for MVP we fetch or just show UID? No, that's bad. */}
-                {/* Assumption: Application should store `displayName` and `photoURL` in `community_members`. */}
-                {/* I will fix the type or assume it's there? */}
-                {/* Re-reading types/community.ts: It DOES NOT have logic for name. */}
-                {/* I will add helper to fetch or modify type. For MVP speed, I will modify type or just render UID to verify then fix. */}
-                {/* Actually, best practice: store a denormalized displayName in `community_members`. */}
-                {/* I will assume the data exists and cast it to `any` or extend the interface locally if TS complains. */}
-                {/* Actually, let's just make it show "Member" for now or use a placeholder, or fetch. Fetching N users is slow. */}
-                {/* Let's assume standard practice is user profile hydration. */}
-                <Avatar sx={{ bgcolor: 'secondary.main' }}>{member.role[0].toUpperCase()}</Avatar>
+                <Avatar
+                    src={member.photoURL || undefined}
+                    sx={{ bgcolor: 'secondary.main' }}
+                >
+                    {(member.displayName?.[0] || member.uid[0]).toUpperCase()}
+                </Avatar>
             </ListItemAvatar>
             <ListItemText
-                primary={member.uid.slice(0, 5) + "..." /* Placeholder for name */}
+                primary={member.displayName || `Member ${member.uid.slice(0, 6)}`}
                 secondary={
                     <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Chip label={member.role} size="small" color={member.role === 'owner' ? "warning" : member.role === 'admin' ? "secondary" : "default"} />
@@ -208,7 +203,8 @@ const formatMemberJoinDate = (ts: any) => {
 }
 
 const RequestList: React.FC<{ requests: JoinRequest[], onApprove: (r: JoinRequest) => void, onReject: (r: JoinRequest) => void }> = ({ requests, onApprove, onReject }) => {
-    if (requests.length === 0) return <Box p={2}><Typography color="text.secondary">No pending requests.</Typography></Box>;
+    const { t } = useTranslation();
+    if (requests.length === 0) return <Box p={2}><Typography color="text.secondary">{t('members.noPending')}</Typography></Box>;
 
     return (
         <List>
@@ -219,7 +215,7 @@ const RequestList: React.FC<{ requests: JoinRequest[], onApprove: (r: JoinReques
                     </ListItemAvatar>
                     <ListItemText
                         primary={req.user.displayName}
-                        secondary={`Requested ${formatDistanceToNow(req.requestedAt.toDate())} ago`}
+                        secondary={`${t('members.requested')} ${formatDistanceToNow(req.requestedAt.toDate())} ${t('members.ago')}`}
                     />
                     <Box>
                         <IconButton color="success" onClick={() => onApprove(req)}><UserCheck /></IconButton>

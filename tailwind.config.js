@@ -30,7 +30,7 @@ export default {
                 }
             },
             fontFamily: {
-                serif: ['"Cinzel"', '"Merriweather"', 'serif'],
+                serif: ['"Playfair Display"', 'serif'],
                 sans: ['"Inter"', 'sans-serif'],
             },
             backgroundImage: {
