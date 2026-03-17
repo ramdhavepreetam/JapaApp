@@ -14,18 +14,27 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Mobile browsers and PWA block popups silently — use redirect flow for them.
+const shouldUseRedirect = (): boolean => {
+    const ua = navigator.userAgent;
+    const isMobileBrowser = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+    const isPWA = window.matchMedia('(display-mode: standalone)').matches ||
+                  (window.navigator as any).standalone === true;
+    return isMobileBrowser || isPWA;
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);
     const [authUser, setAuthUser] = useState<AuthUser | null>(null);
     const [loading, setLoading] = useState(true);
     const signingIn = useRef(false); // guard against double-tap / concurrent popup requests
 
-    // On app load, check for a pending redirect result (mobile/PWA sign-in flow)
+    // On app load, complete any pending redirect sign-in (mobile/PWA flow).
+    // onAuthStateChanged handles setting the user; this just catches any errors.
     useEffect(() => {
         getRedirectResult(auth).catch((err) => {
-            // Ignore — no pending redirect or already handled by onAuthStateChanged
-            if (err?.code !== 'auth/no-auth-event') {
-                console.warn('getRedirectResult error (non-critical):', err?.code);
+            if (err?.code && err.code !== 'auth/no-auth-event') {
+                console.warn('getRedirectResult error:', err.code);
             }
         });
     }, []);
@@ -73,34 +82,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, []);
 
     const signInWithGoogle = async () => {
-        // Prevent duplicate popup requests (double-tap, rapid re-click)
         if (signingIn.current) return;
         signingIn.current = true;
 
         const provider = new GoogleAuthProvider();
+
+        // Mobile browsers and PWA block popups silently — use redirect directly.
+        if (shouldUseRedirect()) {
+            try {
+                await signInWithRedirect(auth, provider);
+                // Page will navigate away; onAuthStateChanged handles result on return.
+            } catch (error: any) {
+                console.error('Redirect sign-in failed', error);
+                alert('Login Failed: ' + (error.message || error));
+            } finally {
+                signingIn.current = false;
+            }
+            return;
+        }
+
+        // Desktop: use popup
         try {
             await signInWithPopup(auth, provider);
         } catch (error: any) {
-            // These codes are not real errors — the user or browser simply closed/cancelled the popup.
-            // Show nothing; let the user try again.
-            const silent = ['auth/cancelled-popup-request', 'auth/popup-closed-by-user', 'auth/popup-blocked'];
+            // User closed or cancelled the popup — not a real error.
+            const silent = ['auth/cancelled-popup-request', 'auth/popup-closed-by-user'];
             if (silent.includes(error?.code)) {
                 console.warn('Sign-in popup cancelled:', error.code);
                 return;
             }
-
-            // For popup-blocked on mobile/PWA, fall back to redirect flow
+            // Popup was blocked by the browser — fall back to redirect.
             if (error?.code === 'auth/popup-blocked' || error?.code === 'auth/operation-not-supported-in-this-environment') {
                 try {
                     await signInWithRedirect(auth, provider);
                     return;
                 } catch (redirectError: any) {
-                    console.error('Redirect sign-in also failed', redirectError);
+                    console.error('Redirect fallback also failed', redirectError);
                 }
             }
-
-            console.error("Error signing in with Google", error);
-            alert("Login Failed: " + (error.message || error));
+            console.error('Error signing in with Google', error);
+            alert('Login Failed: ' + (error.message || error));
             throw error;
         } finally {
             signingIn.current = false;
