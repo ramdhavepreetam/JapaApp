@@ -1,7 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
-import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 import { getAnalytics } from 'firebase/analytics';
 
 
@@ -32,24 +31,13 @@ export const db = initializeFirestore(app, {
     })
 });
 
-// App Check — only initialize if a valid site key is configured
-const recaptchaKey = import.meta.env.VITE_RECAPTCHA_V3_SITE_KEY;
-export const appCheck = recaptchaKey
-    ? (() => {
-        if (import.meta.env.DEV) {
-            (self as any).FIREBASE_APPCHECK_DEBUG_TOKEN = true;
-        }
-        try {
-            return initializeAppCheck(app, {
-                provider: new ReCaptchaV3Provider(recaptchaKey),
-                isTokenAutoRefreshEnabled: true
-            });
-        } catch (e) {
-            console.warn('App Check initialization failed:', e);
-            return null;
-        }
-    })()
-    : null;
+// App Check is intentionally NOT initialized at startup.
+// initializeAppCheck causes signInWithPopup to do an async token fetch before
+// opening the popup window, breaking the "user gesture" chain on mobile browsers
+// (Chrome Android, iOS Safari) → popup blocked. Enable App Check only after
+// Firebase Console enforcement is turned on AND the auth flow is migrated to
+// server-side tokens or a non-popup flow.
+export const appCheck = null;
 
 // Analytics (enabled only when measurementId is configured)
 export const analytics = firebaseConfig.measurementId ? getAnalytics(app) : null;
