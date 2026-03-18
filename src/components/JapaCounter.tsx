@@ -64,6 +64,24 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
         setData(storage.get());
     }, []);
 
+    // On mount, silently restore totalMalas from Firestore if it's higher than localStorage.
+    // Protects against: browser storage clear, iOS Safari 7-day ITP purge, new device.
+    // Only runs once per login session. Never overwrites local data with a lower value.
+    useEffect(() => {
+        if (!user) return;
+        userService.getUserProfile(user.uid).then(profile => {
+            if (!profile) return;
+            const firestoreMalas = profile.stats?.totalMalas || 0;
+            const local = storage.get();
+            if (firestoreMalas > local.totalMalas) {
+                const updated = storage.get();
+                updated.totalMalas = firestoreMalas;
+                storage.save(updated);
+                setData(storage.get());
+            }
+        }).catch(() => {}); // silent — never disrupts the counter
+    }, [user]);
+
     useEffect(() => {
         const handleOnline = () => setIsOnline(true);
         const handleOffline = () => setIsOnline(false);
