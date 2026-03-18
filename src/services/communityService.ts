@@ -8,6 +8,7 @@ import {
 import { Community, CommunityMember, UserProfileSummary, UserRole, JoinRequest } from '../types/community';
 import { runWithFallback } from './resilience';
 import { localStore } from './localStore';
+import { track } from '../lib/analytics';
 
 // 10-character cryptographically random invite code using an unambiguous alphabet
 const generateInviteCode = (): string => {
@@ -254,6 +255,7 @@ export const communityService = {
                     });
                     transaction.update(commRef, { membersCount: increment(1) });
                 });
+                track.communityJoined(communityId);
             },
             async () => {
                 // Mock join
@@ -364,6 +366,7 @@ export const communityService = {
                     batch.update(commDoc.ref, { membersCount: increment(1) });
                 }
                 await batch.commit();
+                track.communityJoined(communityId);
             },
             async () => {
                 // Invite code lookup requires Firestore — cannot work offline

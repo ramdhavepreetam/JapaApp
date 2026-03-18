@@ -33,7 +33,13 @@ export type PendingSyncItem = {
     completed: boolean;
 };
 
-const getTodayDate = () => new Date().toISOString().split('T')[0];
+// Use local calendar date — NOT UTC (toISOString() returns UTC which causes the
+// "today" key to flip 5h30m early for IST users, making the daily count appear
+// to reset at 5:30 AM IST instead of midnight IST).
+export const getTodayDate = (): string => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
 
 const INITIAL_STATE: StorageSchema = {
     history: {},

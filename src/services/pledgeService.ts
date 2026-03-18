@@ -7,6 +7,7 @@ import { User } from 'firebase/auth';
 
 import { Pledge, PledgeParticipant } from '../types/pledge';
 import { runWithFallback } from './resilience';
+import { track } from '../lib/analytics';
 
 // --- MOCK IMPLEMENTATION (LocalStorage) ---
 const LOCAL_STORAGE_KEY_PLEDGES = 'japa_mock_pledges';
@@ -315,6 +316,7 @@ export const pledgeService = {
                 batch.update(participationRef, { contributedMalas: increment(malas) });
                 batch.update(pledgeRef, { currentMalas: increment(malas) });
                 await batch.commit();
+                track.pledgeContributed(pledgeId, malas);
             },
             () => mockService.contribute(pledgeId, userId, malas),
             "Contribute"

@@ -3,6 +3,7 @@ import { doc, getDoc, setDoc, updateDoc, increment, Timestamp } from 'firebase/f
 import { User } from 'firebase/auth';
 import { calculateStreak } from './streakUtils';
 import { runWithFallback } from './resilience';
+import { storage, getTodayDate } from '../lib/storage';
 
 export interface UserProfile {
     uid: string;
@@ -126,7 +127,9 @@ export const userService = {
                     : Math.max(0, malasCompleted) * 108;
 
                 const newStreak = calculateStreak(currentStats.lastChantDate, currentStats.streakDays || 0);
-                const today = new Date().toISOString().split('T')[0];
+                // Use local calendar date (not UTC toISOString) so lastChantDate matches
+                // the user's clock — prevents streak from breaking for IST users after 5:30 AM.
+                const today = getTodayDate();
 
                 // Use increment() for cumulative fields — atomic, safe for concurrent updates
                 await updateDoc(userRef, {
@@ -148,22 +151,36 @@ export const userService = {
                 });
             },
             async () => {
-                const cached = getCachedProfile(userId);
-                if (!cached) return;
-                const currentStats = cached.stats;
+                // OFFLINE PATH: update local cache AND enqueue for Firestore sync on reconnect.
+                // IMPORTANT: runWithFallback never rejects, so the caller's .catch() is dead code
+                // when offline. We must queue here ourselves.
                 const resolvedCounts = countsCompleted > 0
                     ? countsCompleted
                     : Math.max(0, malasCompleted) * 108;
-                const newStreak = calculateStreak(currentStats.lastChantDate, currentStats.streakDays || 0);
-                const today = new Date().toISOString().split('T')[0];
-                setCachedProfile(userId, {
-                    ...cached,
-                    stats: {
-                        totalMalas: (currentStats.totalMalas || 0) + Math.max(0, malasCompleted),
-                        totalMantras: (currentStats.totalMantras || 0) + Math.max(0, resolvedCounts),
-                        streakDays: newStreak,
-                        lastChantDate: today
-                    }
+
+                const cached = getCachedProfile(userId);
+                if (cached) {
+                    const currentStats = cached.stats;
+                    const newStreak = calculateStreak(currentStats.lastChantDate, currentStats.streakDays || 0);
+                    const today = getTodayDate();
+                    setCachedProfile(userId, {
+                        ...cached,
+                        stats: {
+                            totalMalas: (currentStats.totalMalas || 0) + Math.max(0, malasCompleted),
+                            totalMantras: (currentStats.totalMantras || 0) + Math.max(0, resolvedCounts),
+                            streakDays: newStreak,
+                            lastChantDate: today
+                        }
+                    });
+                }
+
+                // Queue so syncPending() in JapaCounter will write to Firestore on reconnect
+                storage.enqueueSync({
+                    id: `sync_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+                    createdAt: new Date().toISOString(),
+                    counts: Math.max(0, resolvedCounts),
+                    malas: Math.max(0, malasCompleted),
+                    completed: true
                 });
             },
             "Update User Stats"

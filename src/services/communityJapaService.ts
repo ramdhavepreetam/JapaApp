@@ -7,6 +7,7 @@ import { JapaEntry } from '../types/community';
 import { runWithFallback } from './resilience';
 import { localStore } from './localStore';
 import { calculateStreak } from './streakUtils';
+import { track } from '../lib/analytics';
 
 // Raw Firebase Implementation (Exported for SyncService)
 export const communityJapaApi = {
@@ -93,7 +94,10 @@ export const communityJapaService = {
      */
     submitJapaEntry: async (communityId: string, entry: JapaEntry): Promise<void> => {
         return runWithFallback(
-            () => communityJapaApi.submitJapaEntry(communityId, entry),
+            async () => {
+                await communityJapaApi.submitJapaEntry(communityId, entry);
+                track.japaCompleted(entry.malas);
+            },
             async () => {
                 // Mock/Offline fallback
                 // 1. Queue it

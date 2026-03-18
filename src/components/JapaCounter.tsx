@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Volume2, VolumeX, RotateCcw, History, Sparkles, Target, Users, Play, Pause, RotateCw, WifiOff, Wifi } from 'lucide-react';
-import { storage, StorageSchema, PendingSyncItem } from '../lib/storage';
+import { storage, StorageSchema, PendingSyncItem, getTodayDate } from '../lib/storage';
 import { BeadRing } from './BeadRing';
 import { Pledge } from '../types/pledge';
 import { Box, IconButton, Button, Typography, Chip, useTheme, Zoom, LinearProgress } from '@mui/material';
@@ -430,7 +430,7 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
                             {t('counter.today')}
                         </Typography>
                         <Typography variant="h3" color="primary.main" sx={{ lineHeight: 1 }}>
-                            {data.history[new Date().toISOString().split('T')[0]]?.malas || 0}
+                            {data.history[getTodayDate()]?.malas || 0}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">{t('counter.malas')}</Typography>
                     </Box>
