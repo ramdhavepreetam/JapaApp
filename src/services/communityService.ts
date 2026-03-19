@@ -11,7 +11,7 @@ import { localStore } from './localStore';
 import { track } from '../lib/analytics';
 
 // 10-character cryptographically random invite code using an unambiguous alphabet
-const generateInviteCode = (): string => {
+export const generateInviteCode = (): string => {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     return Array.from(crypto.getRandomValues(new Uint8Array(10)))
         .map(b => chars[b % chars.length])
@@ -539,7 +539,7 @@ export const communityService = {
      */
     updateCommunity: async (communityId: string, updates: Partial<Community>): Promise<void> => {
         const ALLOWED_FIELDS: (keyof Community)[] = [
-            'name', 'description', 'imageUrl', 'isPrivate', 'requiresApproval', 'tags'
+            'name', 'description', 'imageUrl', 'isPrivate', 'requiresApproval', 'tags', 'inviteCode'
         ];
         const safeUpdates: Partial<Community> = {};
         for (const key of ALLOWED_FIELDS) {

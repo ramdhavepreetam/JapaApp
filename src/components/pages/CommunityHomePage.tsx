@@ -6,15 +6,13 @@ import {
 } from '@mui/material';
 import { ArrowLeft, MessageSquare, List as ListIcon, Settings as SettingsIcon, Target, Users } from 'lucide-react';
 import { communityService } from '../../services/communityService';
-import { Community, UserRole, CommunityMember } from '../../types/community';
+import { Community, UserRole } from '../../types/community';
 import { useAuth } from '../../contexts/AuthContext';
 import { CommunityCounterTab } from '../tabs/CommunityCounterTab';
 import { CommunityFeedTab } from '../tabs/CommunityFeedTab';
 import { CommunityChatTab } from '../tabs/CommunityChatTab';
 import { CommunityMembersTab } from '../tabs/CommunityMembersTab';
 import { CommunitySettingsTab } from '../tabs/CommunitySettingsTab';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../../lib/firebase';
 
 interface CommunityHomePageProps {
     communityId: string;
@@ -47,14 +45,9 @@ export const CommunityHomePage: React.FC<CommunityHomePageProps> = ({ communityI
                 if (isMounted) setCommunity(c);
 
                 if (user) {
-                    // Check membership directly
-                    const memRef = doc(db, 'community_members', `${communityId}_${user.uid}`);
-                    const memSnap = await getDoc(memRef);
-                    if (memSnap.exists() && isMounted) {
-                        const data = memSnap.data() as CommunityMember;
-                        if (data.status === 'active') {
-                            setMyRole(data.role);
-                        }
+                    const member = await communityService.getCommunityMember(communityId, user.uid);
+                    if (member && member.status === 'active' && isMounted) {
+                        setMyRole(member.role);
                     }
                 }
             } catch (e) {
@@ -99,8 +92,9 @@ export const CommunityHomePage: React.FC<CommunityHomePageProps> = ({ communityI
                     displayName: user.displayName || 'User',
                     photoURL: user.photoURL || ''
                 });
-                // Reload page or state to show tabs
-                window.location.reload();
+                const updated = await communityService.getCommunity(community.id);
+                if (updated) setCommunity(updated);
+                setMyRole('member');
             }
         } catch (e: any) {
             console.error(e);

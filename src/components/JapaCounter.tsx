@@ -9,6 +9,7 @@ import { Box, IconButton, Button, Typography, Chip, useTheme, Zoom, LinearProgre
 import { useAuth } from '../contexts/AuthContext';
 import { useCommunity } from '../contexts/CommunityContext';
 import { userService } from '../services/userService';
+import { syncService } from '../services/syncService';
 
 interface JapaCounterProps {
     onViewReport: () => void;
@@ -182,8 +183,12 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
             if (onSaved) onSaved(malas, mantras);
         } catch (e) {
             console.error("Failed to submit community entry", e);
-            // It should have been queued by the service if offline, so this acts as generic error trap
         }
+
+        // Whether it went to Firestore or the local queue, immediately try
+        // to flush the queue so the entry reaches Firebase without waiting
+        // for the next online event.
+        syncService.syncAll();
     };
 
     const handleTap = async () => {
@@ -232,11 +237,11 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
                             .catch((err: unknown) => console.error('Pledge contribute failed', err));
                     });
                     // Pledges also update personal stats separately
-                    userService.updateUserStats(user.uid, 1, 108).catch(() => queueSync(108, 1));
+                    userService.updateUserStats(user.uid, 1, 108).catch(() => { queueSync(108, 1); syncPending(); });
                 }
                 // 3. Personal Mode
                 else {
-                    userService.updateUserStats(user.uid, 1, 108).catch(() => queueSync(108, 1));
+                    userService.updateUserStats(user.uid, 1, 108).catch(() => { queueSync(108, 1); syncPending(); });
                 }
             }
         }

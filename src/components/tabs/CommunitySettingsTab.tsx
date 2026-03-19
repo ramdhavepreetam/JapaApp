@@ -5,7 +5,7 @@ import {
 } from '@mui/material';
 import { Save, Copy, RefreshCw } from 'lucide-react';
 import { Community, UserRole } from '../../types/community';
-import { communityService } from '../../services/communityService';
+import { communityService, generateInviteCode } from '../../services/communityService';
 
 interface CommunitySettingsTabProps {
     communityId: string;
@@ -82,8 +82,7 @@ export const CommunitySettingsTab: React.FC<CommunitySettingsTabProps> = ({ comm
         if (!community) return;
         setSaving(true);
         try {
-            // Generate new code
-            const newCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+            const newCode = generateInviteCode();
             await communityService.updateCommunity(communityId, {
                 inviteCode: newCode
             });

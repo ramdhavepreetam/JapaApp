@@ -29,6 +29,14 @@ export const resetFallbackState = () => {
 
 export const isFallbackMode = () => USE_MOCK_FALLBACK;
 
+// Reset sticky fallback flag whenever the device reconnects so the next
+// Firestore call gets a real attempt instead of going straight to localStorage.
+if (typeof window !== 'undefined') {
+    window.addEventListener('online', () => {
+        USE_MOCK_FALLBACK = false;
+    });
+}
+
 export const runWithFallback = async <T>(
     primaryFn: () => Promise<T>,
     fallbackFn: () => Promise<T>,

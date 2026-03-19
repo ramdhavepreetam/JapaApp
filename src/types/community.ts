@@ -54,6 +54,7 @@ export type PostType = 'text' | 'image' | 'announcement';
 export interface CommunityPost {
     id: string;
     communityId: string;
+    authorId: string; // Scalar field required by Firestore rules for permission checks
     author: UserProfileSummary;
     type: PostType;
     content: string; // Text or Image URL

@@ -218,15 +218,17 @@ guard  = "if (!currentUser) { show auth prompt; return } — consistent across A
 
 [[gaps]]
 id       = "GAP-1"
-priority = "critical"
+priority = "resolved"
 what     = "community.ts vs communityService.ts overlap"
 action   = "manual — open both, consolidate, create ADR-0006"
+resolved = "services/community.ts no longer exists — all logic consolidated in communityService.ts"
 
 [[gaps]]
 id       = "GAP-2"
-priority = "high"
+priority = "resolved"
 what     = "pledge logic inside CommunityCounterTab"
 action   = "SLICE-REMAINING-01 — extract to services/pledgeService.ts"
+resolved = "CommunityCounterTab.tsx has zero pledge references — pledgeService.ts fully implements all pledge operations"
 
 [[gaps]]
 id       = "GAP-3"
@@ -288,7 +290,7 @@ status = "needs-audit"
 [[adrs]]
 id     = "ADR-0006"
 title  = "community.ts vs communityService.ts consolidation"
-status = "pending"
+status = "accepted"
 
 [[adrs]]
 id     = "ADR-0007"
@@ -425,6 +427,13 @@ slice   = "Fix: Japa & Pledge Data Not Persisting to Firestore"
 summary = "Fixed 4 root-cause bugs causing all writes to silently fall back to localStorage. Bug1: japa_entries was written/queried at root collection path but Firestore rules define it as a subcollection under communities/{id}/japa_entries — fixed path in communityJapaService.ts. Bug2: transaction.update(userRef) called even when userSnap.exists()===false (new users), crashing the transaction — fixed with conditional update vs set+merge. Bug3: firestore.rules community_members self-update allowed keys list was missing totalMalas/totalMantras — added them. Bug4: firestore.rules pledges update rule only permitted creatorId to update, blocking contribute() for all other participants — added allow for currentMalas-only updates by any authenticated user."
 files   = ["src/services/communityJapaService.ts", "firestore.rules"]
 next    = "Deploy updated firestore.rules: firebase deploy --only firestore:rules"
+
+[[ledger]]
+date    = "2026-03-17"
+slice   = "Audit: GAP-1 and GAP-2 verified as already resolved"
+summary = "Code audit confirmed both critical gaps are closed. GAP-1: services/community.ts does not exist — all community logic is consolidated in communityService.ts (588 LOC, fully resilience-wrapped). GAP-2: CommunityCounterTab.tsx (156 LOC) contains zero pledge references — pledgeService.ts fully implements all pledge operations (getPledges, createPledge, joinPledge, leavePledge, contribute, deletePledge, updatePledge) all wrapped in runWithFallback. Updated GAP-1 and GAP-2 priority to resolved, ADR-0006 status to accepted."
+files   = ["development.toml"]
+next    = "No remaining critical or high gaps open — ready for next feature slice"
 
 # Add new entries above — newest first
 # [[ledger]]

@@ -29,6 +29,10 @@ export const syncService = {
         if (syncService.isSyncing) return;
         if (!navigator.onLine) return; // Basic check
 
+        // Clear the sticky fallback flag before each sync attempt so calls
+        // go to Firestore rather than staying in localStorage.
+        resetFallbackState();
+
         syncService.isSyncing = true;
         console.log("Starting Sync...");
 

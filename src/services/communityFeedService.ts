@@ -60,6 +60,7 @@ export const communityFeedService = {
 
                 const newPost: Omit<CommunityPost, 'id'> = {
                     communityId,
+                    authorId: author.uid,
                     author,
                     type,
                     content,
@@ -82,6 +83,7 @@ export const communityFeedService = {
                 const newPost: CommunityPost = {
                     id: `mock_post_${Date.now()}`,
                     communityId,
+                    authorId: author.uid,
                     author,
                     type,
                     content,
@@ -101,27 +103,31 @@ export const communityFeedService = {
      * Like a post (Toggle)
      */
     likePost: async (communityId: string, postId: string, uid: string): Promise<boolean> => {
-        const postRef = doc(db, 'communities', communityId, 'posts', postId);
-        const likeRef = doc(db, 'communities', communityId, 'posts', postId, 'likes', uid);
-
-        let liked = false;
-
-        await runTransaction(db, async (transaction) => {
-            const likeDoc = await transaction.get(likeRef);
-            if (likeDoc.exists()) {
-                // Unlike
-                transaction.delete(likeRef);
-                transaction.update(postRef, { likesCount: increment(-1) });
-                liked = false;
-            } else {
-                // Like
-                transaction.set(likeRef, { uid, likedAt: serverTimestamp() });
-                transaction.update(postRef, { likesCount: increment(1) });
-                liked = true;
-            }
-        });
-
-        return liked;
+        return runWithFallback(
+            async () => {
+                const postRef = doc(db, 'communities', communityId, 'posts', postId);
+                const likeRef = doc(db, 'communities', communityId, 'posts', postId, 'likes', uid);
+                let liked = false;
+                await runTransaction(db, async (transaction) => {
+                    const likeDoc = await transaction.get(likeRef);
+                    if (likeDoc.exists()) {
+                        transaction.delete(likeRef);
+                        transaction.update(postRef, { likesCount: increment(-1) });
+                        liked = false;
+                    } else {
+                        transaction.set(likeRef, { uid, likedAt: serverTimestamp() });
+                        transaction.update(postRef, { likesCount: increment(1) });
+                        liked = true;
+                    }
+                });
+                return liked;
+            },
+            async () => {
+                // Offline: optimistic toggle, not persisted
+                return true;
+            },
+            "Like Post"
+        );
     },
 
     /**

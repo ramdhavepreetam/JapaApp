@@ -191,13 +191,12 @@ service cloud.firestore {
     match /pledges/{pledgeId} {
         allow read: if true; // Public pledges
         allow create: if isAuthenticated();
-        // BUG FIX #4: contribute() increments currentMalas for any participant, not just
-        // the creator. Allow any authenticated user to update only the currentMalas counter.
-        // All other field edits (title, description, targetMalas, etc.) remain creator-only.
+        // Any authenticated user may increment currentMalas (contribute) or participants
+        // (join/leave). All other field edits remain creator-only.
         allow update: if isAuthenticated() &&
                       (
                         resource.data.creatorId == request.auth.uid ||
-                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['currentMalas'])
+                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['currentMalas', 'participants'])
                       );
     }
 
