@@ -92,6 +92,8 @@ export const communityChatService = {
         clientId?: string,
         replyToId?: string
     ): Promise<string> => {
+        if (!content.trim()) throw new Error("Message cannot be empty.");
+        if (content.length > 500) throw new Error("Message is too long (max 500 characters).");
         return runWithFallback(
             () => communityChatApi.sendMessage(communityId, content, sender, clientId, replyToId),
             async () => {

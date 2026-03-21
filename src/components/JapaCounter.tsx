@@ -10,6 +10,9 @@ import { useAuth } from '../contexts/AuthContext';
 import { useCommunity } from '../contexts/CommunityContext';
 import { userService } from '../services/userService';
 import { syncService } from '../services/syncService';
+import { MantraPlayerBar } from './MantraPlayerBar';
+import { mantraService } from '../services/mantraService';
+import { Mantra } from '../types/mantra';
 
 interface JapaCounterProps {
     onViewReport: () => void;
@@ -39,6 +42,8 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
     const [soundEnabled, setSoundEnabled] = useState(true);
     const [feedback, setFeedback] = useState<string | null>(null);
     const [isOnline, setIsOnline] = useState(navigator.onLine);
+    const [mantras, setMantras] = useState<Mantra[]>([]);
+    const [mantrasLoading, setMantrasLoading] = useState(true);
     const [mantraFontSize, setMantraFontSize] = useState<number>(() => {
         const saved = localStorage.getItem('japa_mantra_font_size');
         return saved ? parseInt(saved, 10) : 24;
@@ -63,6 +68,13 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
 
     useEffect(() => {
         setData(storage.get());
+    }, []);
+
+    useEffect(() => {
+        mantraService.getMantras().then(list => {
+            setMantras(list);
+            setMantrasLoading(false);
+        }).catch(() => setMantrasLoading(false));
     }, []);
 
     // On mount, silently restore totalMalas from Firestore if it's higher than localStorage.
@@ -306,6 +318,11 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
             }}
             onClick={handleTap}
         >
+            {/* Mantra Audio Player Bar */}
+            <Box sx={{ pointerEvents: 'auto', zIndex: 20 }} onClick={e => e.stopPropagation()}>
+                <MantraPlayerBar mantras={mantras} loading={mantrasLoading} />
+            </Box>
+
             {/* Header / Top Bar */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pl: 2, pr: 8, py: 2, zIndex: 10, pointerEvents: 'none' }}>
                 <Box sx={{ display: 'flex', gap: 1, pointerEvents: 'auto' }}>

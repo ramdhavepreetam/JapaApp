@@ -51,8 +51,8 @@ const mockService = {
 
         // Limit check
         const myCount = pledges.filter(p => p.creatorId === user.uid).length;
-        if (myCount >= 50) {
-            throw new Error("You have reached the limit of 50 causes per user.");
+        if (myCount >= 5) {
+            throw new Error("You can create up to 5 causes. Delete an old one to add a new one.");
         }
 
         if (pledges.some(p => p.title === pledge.title)) {
@@ -218,8 +218,8 @@ export const pledgeService = {
                 // 0. Limit Check (Max 50)
                 const limitQ = query(collection(db, 'pledges'), where('creatorId', '==', user.uid));
                 const limitSnap = await getDocs(limitQ);
-                if (limitSnap.size >= 50) {
-                    throw new Error("You have reached the limit of 50 causes per user.");
+                if (limitSnap.size >= 5) {
+                    throw new Error("You can create up to 5 causes. Delete an old one to add a new one.");
                 }
 
                 // 1. Check uniqueness

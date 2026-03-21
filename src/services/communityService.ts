@@ -3,7 +3,7 @@ import {
     collection, doc, getDoc, getDocs, setDoc, updateDoc,
     query, where, orderBy, limit,
     startAfter, Timestamp, writeBatch, serverTimestamp,
-    increment, DocumentSnapshot, runTransaction
+    increment, DocumentSnapshot, runTransaction, getCountFromServer
 } from 'firebase/firestore';
 import { Community, CommunityMember, UserProfileSummary, UserRole, JoinRequest } from '../types/community';
 import { runWithFallback } from './resilience';
@@ -37,6 +37,22 @@ export const communityService = {
         if (!payload.creator?.uid) throw new Error("Requires authentication");
         return runWithFallback(
             async () => {
+                // Limit: max 3 communities per user
+                const countSnap = await getCountFromServer(
+                    query(collection(db, 'communities'), where('creatorId', '==', payload.creator.uid))
+                );
+                if (countSnap.data().count >= 3) {
+                    throw new Error("You can create up to 3 communities. Delete one to create a new one.");
+                }
+
+                // Uniqueness: community name must be unique
+                const nameCheck = await getDocs(
+                    query(collection(db, 'communities'), where('name', '==', payload.name), limit(1))
+                );
+                if (!nameCheck.empty) {
+                    throw new Error("A community with this name already exists. Please choose a different name.");
+                }
+
                 const batch = writeBatch(db);
 
                 // 1. Create Community Doc

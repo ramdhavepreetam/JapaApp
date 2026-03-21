@@ -3,7 +3,7 @@ import {
     collection, doc, getDoc, getDocs, addDoc, updateDoc,
     query, where, orderBy, limit, startAfter, Timestamp,
     serverTimestamp, increment, DocumentSnapshot,
-    runTransaction
+    runTransaction, getCountFromServer
 } from 'firebase/firestore';
 import { CommunityPost, PostType, UserProfileSummary } from '../types/community';
 import { runWithFallback } from './resilience';
@@ -56,6 +56,21 @@ export const communityFeedService = {
     createPost: async (communityId: string, type: PostType, content: string, author: UserProfileSummary): Promise<CommunityPost> => {
         return runWithFallback(
             async () => {
+                // Limit: max 5 posts per user per community per day
+                const todayStart = new Date();
+                todayStart.setHours(0, 0, 0, 0);
+                const todayTs = Timestamp.fromDate(todayStart);
+                const postCountToday = await getCountFromServer(
+                    query(
+                        collection(db, 'communities', communityId, 'posts'),
+                        where('authorId', '==', author.uid),
+                        where('createdAt', '>=', todayTs)
+                    )
+                );
+                if (postCountToday.data().count >= 5) {
+                    throw new Error("You've reached the daily post limit (5 posts per day).");
+                }
+
                 const postsRef = collection(db, 'communities', communityId, 'posts');
 
                 const newPost: Omit<CommunityPost, 'id'> = {

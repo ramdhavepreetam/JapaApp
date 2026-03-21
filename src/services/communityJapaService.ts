@@ -93,6 +93,8 @@ export const communityJapaService = {
      * Submit a Japa Entry with Idempotency and Aggregation
      */
     submitJapaEntry: async (communityId: string, entry: JapaEntry): Promise<void> => {
+        if (entry.malas <= 0) throw new Error("Mala count must be a positive number.");
+        if (entry.malas > 10000) throw new Error("Please enter a valid mala count (max 10,000 per entry).");
         return runWithFallback(
             async () => {
                 await communityJapaApi.submitJapaEntry(communityId, entry);

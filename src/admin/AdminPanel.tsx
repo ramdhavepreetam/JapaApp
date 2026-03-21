@@ -8,6 +8,7 @@ import { AdminUsersTab } from './AdminUsersTab';
 import { AdminCommunitiesTab } from './AdminCommunitiesTab';
 import { AdminStatsTab } from './AdminStatsTab';
 import { AdminDonationsTab } from './AdminDonationsTab';
+import { AdminMantrasTab } from './AdminMantrasTab';
 
 interface AdminPanelProps {
   onBack: () => void;
@@ -86,6 +87,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
           <Tab label="Communities" />
           <Tab label="Stats" />
           <Tab label="Donations" />
+          <Tab label="Mantras" />
         </Tabs>
       </Box>
 
@@ -134,6 +136,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
               style={{ height: '100%' }}
             >
               <AdminDonationsTab />
+            </motion.div>
+          )}
+          {activeTab === 4 && (
+            <motion.div
+              key="mantras"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              style={{ height: '100%' }}
+            >
+              <AdminMantrasTab />
             </motion.div>
           )}
         </AnimatePresence>

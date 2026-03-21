@@ -24,6 +24,9 @@ export const CommunityChatTab: React.FC<CommunityChatTabProps> = ({ communityId,
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [loadingMore, setLoadingMore] = useState(false);
     const [hasMore, setHasMore] = useState(true);
+    const lastSentRef = useRef<number>(0);
+    const MAX_CHARS = 500;
+    const RATE_LIMIT_MS = 3000;
 
     // Initial Subscribe (Last 50)
     useEffect(() => {
@@ -48,9 +51,13 @@ export const CommunityChatTab: React.FC<CommunityChatTabProps> = ({ communityId,
 
     const handleSend = async () => {
         if (!inputText.trim() || !user) return;
+        if (inputText.length > MAX_CHARS) return;
+        const now = Date.now();
+        if (now - lastSentRef.current < RATE_LIMIT_MS) return;
+        lastSentRef.current = now;
         setSending(true);
         try {
-            const clientId = `client_${Date.now()}`; // Simple client ID
+            const clientId = `client_${Date.now()}`;
             await communityChatService.sendMessage(
                 communityId,
                 inputText,
@@ -171,23 +178,42 @@ export const CommunityChatTab: React.FC<CommunityChatTabProps> = ({ communityId,
             </Box>
 
             <Box sx={{ p: 1.5, bgcolor: 'background.paper', display: 'flex', alignItems: 'center', gap: 1 }}>
-                <TextField
-                    fullWidth
-                    size="small"
-                    placeholder={!user ? t('chat.signInPrompt') : t('chat.placeholder')}
-                    value={inputText}
-                    onChange={(e) => setInputText(e.target.value)}
-                    onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            handleSend();
-                        }
-                    }}
-                    sx={{ bgcolor: 'action.hover', borderRadius: 1 }}
-                    InputProps={{ sx: { borderRadius: 4 } }}
-                    disabled={!user || sending}
-                />
-                <IconButton color="primary" disabled={!user || !inputText.trim() || sending} onClick={handleSend}>
+                <Box sx={{ flex: 1, position: 'relative' }}>
+                    <TextField
+                        fullWidth
+                        size="small"
+                        placeholder={!user ? t('chat.signInPrompt') : t('chat.placeholder')}
+                        value={inputText}
+                        onChange={(e) => setInputText(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                handleSend();
+                            }
+                        }}
+                        sx={{ bgcolor: 'action.hover', borderRadius: 1 }}
+                        InputProps={{ sx: { borderRadius: 4 } }}
+                        disabled={!user || sending}
+                        error={inputText.length > MAX_CHARS}
+                    />
+                    {inputText.length > MAX_CHARS * 0.8 && (
+                        <Typography
+                            variant="caption"
+                            sx={{
+                                position: 'absolute', bottom: -18, right: 4,
+                                color: inputText.length > MAX_CHARS ? 'error.main' : 'text.secondary',
+                                fontSize: '0.65rem'
+                            }}
+                        >
+                            {inputText.length}/{MAX_CHARS}
+                        </Typography>
+                    )}
+                </Box>
+                <IconButton
+                    color="primary"
+                    disabled={!user || !inputText.trim() || sending || inputText.length > MAX_CHARS}
+                    onClick={handleSend}
+                >
                     <Send />
                 </IconButton>
             </Box>
