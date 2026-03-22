@@ -9,6 +9,8 @@ export interface Pledge {
   participants: number;
   creatorId?: string;
   mantra?: string;
+  communityId?: string;  // Optional — undefined means global/legacy pledge
+  createdAt?: Timestamp; // Set at write time; used for admin sorting
 }
 
 export interface PledgeParticipant {

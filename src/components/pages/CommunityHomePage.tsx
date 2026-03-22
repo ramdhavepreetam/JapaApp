@@ -4,7 +4,7 @@ import {
     Box, AppBar, Toolbar, IconButton, Typography, Tabs, Tab,
     CircularProgress, Button
 } from '@mui/material';
-import { ArrowLeft, MessageSquare, List as ListIcon, Settings as SettingsIcon, Target, Users } from 'lucide-react';
+import { ArrowLeft, MessageSquare, List as ListIcon, Settings as SettingsIcon, Target, Users, Heart } from 'lucide-react';
 import { communityService } from '../../services/communityService';
 import { Community, UserRole } from '../../types/community';
 import { useAuth } from '../../contexts/AuthContext';
@@ -13,6 +13,7 @@ import { CommunityFeedTab } from '../tabs/CommunityFeedTab';
 import { CommunityChatTab } from '../tabs/CommunityChatTab';
 import { CommunityMembersTab } from '../tabs/CommunityMembersTab';
 import { CommunitySettingsTab } from '../tabs/CommunitySettingsTab';
+import { CommunityPledgesTab } from '../tabs/CommunityPledgesTab';
 
 interface CommunityHomePageProps {
     communityId: string;
@@ -24,7 +25,7 @@ export const CommunityHomePage: React.FC<CommunityHomePageProps> = ({ communityI
     const { user } = useAuth();
     const [community, setCommunity] = useState<Community | null>(null);
     const [myRole, setMyRole] = useState<UserRole | undefined>(undefined);
-    const [tab, setTab] = useState(0); // 0: Feed, 1: Chat, 2: Counter, 3: Members, 4: Settings
+    const [tab, setTab] = useState(0); // 0: Feed, 1: Chat, 2: Chant, 3: Pledges, 4: Members, 5: Settings
 
     // Re-fetch community data (called after japa save to update totals)
     const refreshCommunity = async () => {
@@ -195,6 +196,7 @@ export const CommunityHomePage: React.FC<CommunityHomePageProps> = ({ communityI
                     <Tab icon={<ListIcon size={20} />} label={t('communityTabs.feed')} />
                     <Tab icon={<MessageSquare size={20} />} label={t('communityTabs.chat')} />
                     <Tab icon={<Target size={20} />} label={t('communityTabs.chant')} />
+                    <Tab icon={<Heart size={20} />} label={t('communityTabs.pledges')} />
                     <Tab icon={<Users size={20} />} label={t('communityTabs.members')} />
                     {isAdmin && <Tab icon={<SettingsIcon size={20} />} label={t('communityTabs.settings')} />}
                 </Tabs>
@@ -210,8 +212,9 @@ export const CommunityHomePage: React.FC<CommunityHomePageProps> = ({ communityI
                         onCommunityUpdated={refreshCommunity}
                     />
                 )}
-                {tab === 3 && <CommunityMembersTab communityId={communityId} currentUserRole={myRole} />}
-                {tab === 4 && isAdmin && <CommunitySettingsTab communityId={communityId} currentUserRole={myRole} />}
+                {tab === 3 && <CommunityPledgesTab communityId={communityId} currentUserRole={myRole} />}
+                {tab === 4 && <CommunityMembersTab communityId={communityId} currentUserRole={myRole} />}
+                {tab === 5 && isAdmin && <CommunitySettingsTab communityId={communityId} currentUserRole={myRole} />}
             </Box>
         </Box>
     );

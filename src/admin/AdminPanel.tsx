@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 
 import { AdminUsersTab } from './AdminUsersTab';
 import { AdminCommunitiesTab } from './AdminCommunitiesTab';
+import { AdminPledgesTab } from './AdminPledgesTab';
 import { AdminStatsTab } from './AdminStatsTab';
 import { AdminDonationsTab } from './AdminDonationsTab';
 import { AdminMantrasTab } from './AdminMantrasTab';
@@ -85,6 +86,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
         >
           <Tab label="Users" />
           <Tab label="Communities" />
+          <Tab label="Pledges" />
           <Tab label="Stats" />
           <Tab label="Donations" />
           <Tab label="Mantras" />
@@ -118,6 +120,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
           )}
           {activeTab === 2 && (
             <motion.div
+              key="pledges"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              style={{ height: '100%' }}
+            >
+              <AdminPledgesTab />
+            </motion.div>
+          )}
+          {activeTab === 3 && (
+            <motion.div
               key="stats"
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -127,7 +140,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
               <AdminStatsTab />
             </motion.div>
           )}
-          {activeTab === 3 && (
+          {activeTab === 4 && (
             <motion.div
               key="donations"
               initial={{ opacity: 0, x: -20 }}
@@ -138,7 +151,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
               <AdminDonationsTab />
             </motion.div>
           )}
-          {activeTab === 4 && (
+          {activeTab === 5 && (
             <motion.div
               key="mantras"
               initial={{ opacity: 0, x: -20 }}

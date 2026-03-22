@@ -362,6 +362,26 @@ export const pledgeService = {
         );
     },
 
+    getCommunityPledges: async (communityId: string, limitCount: number = 20): Promise<Pledge[]> => {
+        return runWithFallback(
+            async () => {
+                const q = query(
+                    collection(db, 'pledges'),
+                    where('communityId', '==', communityId),
+                    orderBy('participants', 'desc'),
+                    limit(limitCount)
+                );
+                const snap = await getDocs(q);
+                return snap.docs.map(d => ({ id: d.id, ...d.data() } as Pledge));
+            },
+            async () => {
+                const all = await mockService.getPledges();
+                return all.filter(p => p.communityId === communityId).slice(0, limitCount);
+            },
+            "Get Community Pledges"
+        );
+    },
+
     updatePledge: async (pledgeId: string, updates: Partial<Pledge>, _userId: string): Promise<Pledge> => {
         if (!_userId) throw new Error("Requires authentication to update a pledge");
         return runWithFallback(

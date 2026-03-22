@@ -5,6 +5,7 @@ import {
   getDocs,
   getDoc,
   query,
+  where,
   limit,
   serverTimestamp,
   writeBatch,
@@ -14,6 +15,7 @@ import {
 } from 'firebase/firestore';
 import { AdminAction, AdminCommunityView, AdminUserView, AdminLog } from '../types/admin';
 import { UserRole } from '../types/auth';
+import { Pledge } from '../types/pledge';
 
 export const adminService = {
   /**
@@ -245,6 +247,49 @@ export const adminService = {
     });
 
     await batch.commit();
+  },
+
+  /**
+   * PLEDGES
+   */
+  getPledges: async (limitCount: number = 100): Promise<Pledge[]> => {
+    const q = query(collection(db, 'pledges'), orderBy('createdAt', 'desc'), limit(limitCount));
+    const snap = await getDocs(q);
+    return snap.docs.map(d => ({ id: d.id, ...d.data() } as Pledge));
+  },
+
+  deletePledge: async (pledgeId: string, reason: string): Promise<void> => {
+    if (!reason.trim()) throw new Error("Delete reason is required.");
+    const adminId = auth.currentUser?.uid;
+    if (!adminId) throw new Error("Requires authentication");
+
+    // Batch-delete all participants first (Firestore 500-op limit)
+    const pledgeRef = doc(db, 'pledges', pledgeId);
+    const participantsSnap = await getDocs(
+      query(collection(db, 'pledge_participants'), where('pledgeId', '==', pledgeId))
+    );
+
+    const BATCH_LIMIT = 499;
+    const participantRefs = participantsSnap.docs.map(d => d.ref);
+
+    if (participantRefs.length > 0) {
+      for (let i = 0; i < participantRefs.length; i += BATCH_LIMIT) {
+        const chunk = participantRefs.slice(i, i + BATCH_LIMIT);
+        const batch = writeBatch(db);
+        chunk.forEach(ref => batch.delete(ref));
+        if (i + BATCH_LIMIT >= participantRefs.length) {
+          batch.delete(pledgeRef);
+        }
+        await batch.commit();
+      }
+    } else {
+      const batch = writeBatch(db);
+      batch.delete(pledgeRef);
+      await batch.commit();
+    }
+
+    // Write audit log after deletion
+    await adminService.writeAdminLog('DELETE_PLEDGE', pledgeId, reason);
   },
 
   /**

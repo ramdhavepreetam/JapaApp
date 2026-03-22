@@ -187,7 +187,7 @@ service cloud.firestore {
       }
     }
 
-    // --- Pledges Collection (Legacy/Global) ---
+    // --- Pledges Collection (Global + Community-scoped) ---
     match /pledges/{pledgeId} {
         allow read: if true; // Public pledges
         allow create: if isAuthenticated();
@@ -197,6 +197,13 @@ service cloud.firestore {
                       (
                         resource.data.creatorId == request.auth.uid ||
                         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['currentMalas', 'participants'])
+                      );
+        // Creator, app admin, or community admin (for community-scoped pledges) can delete.
+        allow delete: if isAuthenticated() && (
+                        resource.data.creatorId == request.auth.uid ||
+                        isAppAdmin() ||
+                        (resource.data.communityId != null &&
+                         isCommunityAdmin(resource.data.communityId))
                       );
     }
 
