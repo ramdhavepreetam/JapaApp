@@ -121,16 +121,6 @@
             ]
         },
         {
-            "collectionGroup": "pledges",
-            "queryScope": "COLLECTION",
-            "fields": [
-                {
-                    "fieldPath": "createdAt",
-                    "order": "DESCENDING"
-                }
-            ]
-        },
-        {
             "collectionGroup": "pledge_participants",
             "queryScope": "COLLECTION",
             "fields": [
