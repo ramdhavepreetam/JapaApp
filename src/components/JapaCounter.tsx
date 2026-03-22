@@ -309,7 +309,7 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
     return (
         <Box
             sx={{
-                height: '100%',
+                minHeight: '100%',
                 width: '100%',
                 display: 'flex',
                 flexDirection: 'column',
@@ -358,7 +358,7 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
             </Box>
 
             {/* Main Center Content */}
-            <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', p: 2 }}>
+            <Box sx={{ flex: 1, minHeight: 340, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', p: 2 }}>
 
                 <Box sx={{ position: 'absolute', top: 88, left: 16, display: 'flex', gap: 1, zIndex: 6 }}>
                     <Chip

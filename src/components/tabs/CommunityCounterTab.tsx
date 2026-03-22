@@ -76,30 +76,26 @@ export const CommunityCounterTab: React.FC<CommunityCounterTabProps> = ({ commun
     const progress = Math.min(100, (localTotalMalas / goal) * 100);
 
     return (
-        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
+        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'background.default', overflowY: 'auto' }}>
 
-            {/* Top Stats Bar */}
-            <Box sx={{ p: 2, bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider', display: 'flex', gap: 2, alignItems: 'center' }}>
-                <Box sx={{ flex: 1 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', mb: 0.5 }}>
-                        <Typography variant="overline" color="text.secondary" fontWeight="bold" sx={{ lineHeight: 1 }}>Community Goal</Typography>
-                        <Typography variant="caption" sx={{ fontWeight: 600, color: 'primary.dark', bgcolor: 'primary.light', px: 1, py: 0.25, borderRadius: 1 }}>
-                            My Total: {myContribution.toLocaleString()}
-                        </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <LinearProgress variant="determinate" value={progress} sx={{ flex: 1, height: 10, borderRadius: 5 }} />
-                        <Typography variant="caption" fontWeight="bold">{progress.toFixed(1)}%</Typography>
-                    </Box>
-                    <Typography variant="body2" sx={{ mt: 0.5 }}>
-                        <Zap size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} />
-                        {localTotalMalas.toLocaleString()} / {goal.toLocaleString()} Malas
+            {/* Top Stats Bar — compact single row */}
+            <Box sx={{ px: 2, py: 1, bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider' }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                    <Typography variant="overline" color="text.secondary" fontWeight="bold" sx={{ lineHeight: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <Zap size={12} /> Community Goal
                     </Typography>
+                    <Typography variant="caption" sx={{ fontWeight: 600, color: 'primary.dark', bgcolor: 'primary.light', px: 1, py: 0.25, borderRadius: 1 }}>
+                        My Total: {myContribution.toLocaleString()} · {localTotalMalas.toLocaleString()} / {goal.toLocaleString()}
+                    </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <LinearProgress variant="determinate" value={progress} sx={{ flex: 1, height: 6, borderRadius: 5 }} />
+                    <Typography variant="caption" fontWeight="bold" sx={{ minWidth: 36 }}>{progress.toFixed(1)}%</Typography>
                 </Box>
             </Box>
 
-            {/* Counter Section - Takes up most space */}
-            <Box sx={{ flex: 1, overflow: 'hidden' }}>
+            {/* Counter Section — natural height, never clipped */}
+            <Box sx={{ flex: '1 0 auto' }}>
                 <JapaCounter
                     mode="community"
                     contextId={community.id}
@@ -108,11 +104,9 @@ export const CommunityCounterTab: React.FC<CommunityCounterTabProps> = ({ commun
                 />
             </Box>
 
-            {/* Bottom Activity Feed (Collapsible or small scrollabel area?) 
-                Let's make it a small drawer or section at bottom.
-            */}
-            <Box sx={{ height: '25%', minHeight: 150, bgcolor: 'background.paper', borderTop: 1, borderColor: 'divider', display: 'flex', flexDirection: 'column' }}>
-                <Typography variant="subtitle2" sx={{ p: 1, px: 2, bgcolor: 'action.hover', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 1 }}>
+            {/* Recent Activity — fixed max-height, scrolls internally */}
+            <Box sx={{ maxHeight: 220, bgcolor: 'background.paper', borderTop: 1, borderColor: 'divider', display: 'flex', flexDirection: 'column' }}>
+                <Typography variant="subtitle2" sx={{ p: 1, px: 2, bgcolor: 'action.hover', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
                     <Clock size={14} /> Recent Activity
                 </Typography>
                 <List dense sx={{ flex: 1, overflowY: 'auto' }}>
