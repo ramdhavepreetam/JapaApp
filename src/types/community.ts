@@ -87,7 +87,9 @@ export interface JapaEntry {
     malas: number;
     mantras: number;
     timestamp: Timestamp;
-    // Idempotency key if needed separate from ID
+    // Denormalized display info — set at write time so the feed never needs extra fetches
+    displayName?: string;
+    photoURL?: string;
 }
 
 export interface Notification {

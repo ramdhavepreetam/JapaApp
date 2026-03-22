@@ -121,33 +121,49 @@ export const CommunityCounterTab: React.FC<CommunityCounterTabProps> = ({ commun
                             <Typography variant="caption">No recent chants. Be the first!</Typography>
                         </Box>
                     ) : (
-                        recentEntries.map((entry) => (
-                            <ListItem key={entry.id}>
-                                <ListItemAvatar>
-                                    <Avatar sx={{ width: 24, height: 24, fontSize: 12 }}>
-                                        {entry.userId === user?.uid ? 'Me' : '?'}
-                                    </Avatar>
-                                </ListItemAvatar>
-                                <ListItemText
-                                    primary={
-                                        <Typography variant="body2">
-                                            {entry.userId === user?.uid ? 'You' : 'A Member'} chanted <b>{entry.malas} malas</b>
-                                        </Typography>
-                                    }
-                                    secondary={
-                                        <Typography variant="caption" color="text.secondary">
-                                            {new Date(
-                                                (entry as any).queuedAt
-                                                    ? (entry as any).queuedAt
-                                                    : (entry.timestamp as any)?.seconds
-                                                        ? (entry.timestamp as any).seconds * 1000
-                                                        : Date.now()
-                                            ).toLocaleTimeString()}
-                                        </Typography>
-                                    }
-                                />
-                            </ListItem>
-                        ))
+                        recentEntries.map((entry) => {
+                            const isMe = entry.userId === user?.uid;
+                            const name = isMe ? 'You' : (entry.displayName || 'Devotee');
+                            const initial = name.charAt(0).toUpperCase();
+                            const entryDate = (entry as any).queuedAt
+                                ? new Date((entry as any).queuedAt)
+                                : entry.timestamp?.toDate
+                                    ? entry.timestamp.toDate()
+                                    : new Date((entry.timestamp as any)?.seconds * 1000 || Date.now());
+                            const timeAgo = (() => {
+                                const diffMs = Date.now() - entryDate.getTime();
+                                const mins = Math.floor(diffMs / 60000);
+                                if (mins < 1) return 'just now';
+                                if (mins < 60) return `${mins}m ago`;
+                                const hrs = Math.floor(mins / 60);
+                                if (hrs < 24) return `${hrs}h ago`;
+                                return entryDate.toLocaleDateString();
+                            })();
+                            return (
+                                <ListItem key={entry.id} sx={{ py: 0.5 }}>
+                                    <ListItemAvatar>
+                                        <Avatar
+                                            src={isMe ? (user?.photoURL || '') : (entry.photoURL || '')}
+                                            sx={{ width: 28, height: 28, fontSize: 12, bgcolor: isMe ? 'primary.main' : 'secondary.main' }}
+                                        >
+                                            {initial}
+                                        </Avatar>
+                                    </ListItemAvatar>
+                                    <ListItemText
+                                        primary={
+                                            <Typography variant="body2">
+                                                <b>{name}</b> chanted {entry.malas > 0 ? <><b>{entry.malas}</b> mala{entry.malas !== 1 ? 's' : ''}</> : <><b>{entry.mantras}</b> mantras</>}
+                                            </Typography>
+                                        }
+                                        secondary={
+                                            <Typography variant="caption" color="text.secondary">
+                                                {timeAgo}
+                                            </Typography>
+                                        }
+                                    />
+                                </ListItem>
+                            );
+                        })
                     )}
                 </List>
             </Box>

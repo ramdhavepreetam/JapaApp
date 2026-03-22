@@ -187,7 +187,9 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
             communityId: contextId,
             malas,
             mantras,
-            timestamp: Timestamp.now()
+            timestamp: Timestamp.now(),
+            displayName: user.displayName || 'Devotee',
+            photoURL: user.photoURL || '',
         };
 
         try {
