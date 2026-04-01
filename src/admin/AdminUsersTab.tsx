@@ -1,33 +1,57 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Box, Typography, TextField, Table, TableBody, TableCell, 
-  TableContainer, TableHead, TableRow, Paper, Avatar, 
-  Button, Chip, Dialog, DialogTitle, DialogContent, 
-  DialogActions, Select, MenuItem, FormControl, InputLabel, CircularProgress, Alert
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  Box, Typography, TextField, Table, TableBody, TableCell,
+  TableContainer, TableHead, TableRow, Paper, Avatar,
+  Button, Chip, Dialog, DialogTitle, DialogContent,
+  DialogActions, Select, MenuItem, FormControl, InputLabel,
+  CircularProgress, Alert
 } from '@mui/material';
+import { DocumentSnapshot } from 'firebase/firestore';
 import { adminService } from '../services/adminService';
 import { AdminUserView } from '../types/admin';
 import { UserRole } from '../types/auth';
+import { formatRelativeTime } from '../utils/formatRelativeTime';
 
 export const AdminUsersTab: React.FC = () => {
+  const PAGE_SIZE = 50;
+
   const [users, setUsers] = useState<AdminUserView[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [totalUsers, setTotalUsers] = useState<number | null>(null);
+
+  // Pagination cursor stack
+  const [cursorStack, setCursorStack] = useState<DocumentSnapshot[]>([]);
+  const [currentCursor, setCurrentCursor] = useState<DocumentSnapshot | undefined>(undefined);
+  const [page, setPage] = useState(1);
+  const [isLastPage, setIsLastPage] = useState(false);
+
+  // Search debounce
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isSearchMode, setIsSearchMode] = useState(false);
 
   // Dialog State
   const [banDialogOpen, setBanDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<AdminUserView | null>(null);
   const [banReason, setBanReason] = useState('');
-  
+
   const [roleDialogOpen, setRoleDialogOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState<UserRole>('user');
 
-  const fetchUsers = async () => {
+  const fetchUsers = async (cursor?: DocumentSnapshot) => {
     try {
       setLoading(true);
-      const data = await adminService.getAllUsers(50);
+      setError(null);
+      const { users: data, lastDoc } = await adminService.getAllUsers(PAGE_SIZE, cursor);
       setUsers(data);
+      // Store lastDoc so handleNextPage knows where page 1 ends
+      setCurrentCursor(lastDoc ?? undefined);
+      setIsLastPage(data.length < PAGE_SIZE || lastDoc === null);
+      // After first page load, also fetch total user count for summary bar
+      if (!cursor) {
+        adminService.getAppStats().then(stats => setTotalUsers(stats.totalUsers)).catch(() => {});
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to fetch users');
     } finally {
@@ -38,6 +62,79 @@ export const AdminUsersTab: React.FC = () => {
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    if (!value.trim()) {
+      // Returning to paginated mode — reset
+      setIsSearchMode(false);
+      setCursorStack([]);
+      setCurrentCursor(undefined);
+      setPage(1);
+      setIsLastPage(false);
+      fetchUsers(undefined);
+      return;
+    }
+
+    debounceRef.current = setTimeout(async () => {
+      try {
+        setLoading(true);
+        setIsSearchMode(true);
+        setIsLastPage(false);
+        const results = await adminService.searchUsers(value.trim());
+        setUsers(results);
+      } catch (err: any) {
+        setError(err.message || 'Search failed');
+      } finally {
+        setLoading(false);
+      }
+    }, 300);
+  };
+
+  const handleNextPage = async () => {
+    if (isLastPage) return;
+    try {
+      setLoading(true);
+      const { users: data, lastDoc } = await adminService.getAllUsers(PAGE_SIZE, currentCursor);
+      if (data.length === 0) {
+        setIsLastPage(true);
+        return; // don't advance page counter; table shows "No more users."
+      }
+      // Push current cursor onto stack before advancing
+      setCursorStack(prev => currentCursor ? [...prev, currentCursor] : prev);
+      setCurrentCursor(lastDoc ?? undefined);
+      setUsers(data);
+      setIsLastPage(data.length < PAGE_SIZE);
+      setPage(prev => prev + 1);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load next page');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePrevPage = async () => {
+    if (page <= 1) return;
+    try {
+      setLoading(true);
+      const newStack = [...cursorStack];
+      newStack.pop(); // remove the cursor we used to reach the current page
+      // After pop, use the new top of the stack (not the popped value) as the cursor
+      const prevCursor = newStack.length > 0 ? newStack[newStack.length - 1] : undefined;
+      const { users: data, lastDoc } = await adminService.getAllUsers(PAGE_SIZE, prevCursor);
+      setCursorStack(newStack);
+      setCurrentCursor(lastDoc ?? undefined);
+      setUsers(data);
+      setIsLastPage(false);
+      setPage(prev => prev - 1);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load previous page');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleBanClick = (user: AdminUserView) => {
     setSelectedUser(user);
@@ -84,29 +181,46 @@ export const AdminUsersTab: React.FC = () => {
     }
   };
 
-  const filteredUsers = users.filter(u => 
-    u.displayName.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    u.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Summary bar computed values
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-  if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>;
+  const activeCount = users.filter(u => {
+    if (!u.stats.lastChantDate) return false;
+    return new Date(u.stats.lastChantDate + 'T00:00:00') >= sevenDaysAgo;
+  }).length;
+
+  const loggedInCount = users.filter(u => {
+    if (!u.lastLoginAt) return false;
+    return u.lastLoginAt.toDate() >= sevenDaysAgo;
+  }).length;
+
+  if (loading && users.length === 0) return <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>;
   if (error) return <Alert severity="error">{error}</Alert>;
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
+      {/* Summary bar */}
+      <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
+        <Chip label={`Total Users: ${totalUsers ?? '…'}`} variant="outlined" />
+        <Chip label={`Active 7d (newest 50): ${activeCount}`} color="success" variant="outlined" />
+        <Chip label={`Logged in 7d (newest 50): ${loggedInCount}`} color="primary" variant="outlined" />
+      </Box>
+
+      {/* Search + heading */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 1 }}>
         <Typography variant="h6">Manage Users</Typography>
-        <TextField 
+        <TextField
           size="small"
-          placeholder="Search by name or email..."
+          placeholder="Search by name or email (prefix)…"
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={(e) => handleSearchChange(e.target.value)}
           sx={{ width: 300 }}
         />
       </Box>
 
       <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
-        <Table size="small" sx={{ minWidth: 560 }}>
+        <Table size="small" sx={{ minWidth: 700 }}>
           <TableHead>
             <TableRow sx={{ bgcolor: 'grey.100' }}>
               <TableCell>User</TableCell>
@@ -114,11 +228,20 @@ export const AdminUsersTab: React.FC = () => {
               <TableCell>Status</TableCell>
               <TableCell>Plan</TableCell>
               <TableCell>Joined</TableCell>
+              <TableCell>Last Login</TableCell>
+              <TableCell>Last Active</TableCell>
               <TableCell align="right">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {filteredUsers.map((user) => (
+            {loading && (
+              <TableRow>
+                <TableCell colSpan={8} align="center" sx={{ py: 3 }}>
+                  <CircularProgress size={24} />
+                </TableCell>
+              </TableRow>
+            )}
+            {!loading && users.map((user) => (
               <TableRow key={user.uid}>
                 <TableCell>
                   <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -133,14 +256,24 @@ export const AdminUsersTab: React.FC = () => {
                   <Chip size="small" label={user.role} color={user.role === 'superadmin' ? 'secondary' : 'default'} />
                 </TableCell>
                 <TableCell>
-                  <Chip 
-                    size="small" 
-                    label={user.status} 
-                    color={user.status === 'banned' ? 'error' : 'success'} 
+                  <Chip
+                    size="small"
+                    label={user.status}
+                    color={user.status === 'banned' ? 'error' : 'success'}
                   />
                 </TableCell>
                 <TableCell>{user.plan}</TableCell>
                 <TableCell>{user.joinedAt?.toDate().toLocaleDateString()}</TableCell>
+                <TableCell>
+                  <Typography variant="body2" color={user.lastLoginAt ? 'text.primary' : 'text.disabled'}>
+                    {formatRelativeTime(user.lastLoginAt)}
+                  </Typography>
+                </TableCell>
+                <TableCell>
+                  <Typography variant="body2" color={user.stats.lastChantDate ? 'text.primary' : 'text.disabled'}>
+                    {formatRelativeTime(user.stats.lastChantDate)}
+                  </Typography>
+                </TableCell>
                 <TableCell align="right">
                   <Button size="small" onClick={() => handleRoleClick(user)}>Role</Button>
                   {user.status === 'banned' ? (
@@ -151,10 +284,10 @@ export const AdminUsersTab: React.FC = () => {
                 </TableCell>
               </TableRow>
             ))}
-            {filteredUsers.length === 0 && (
+            {!loading && users.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
-                  No users found matching your search.
+                <TableCell colSpan={8} align="center" sx={{ py: 3 }}>
+                  {isSearchMode ? 'No users found matching your search.' : 'No more users.'}
                 </TableCell>
               </TableRow>
             )}
@@ -162,7 +295,20 @@ export const AdminUsersTab: React.FC = () => {
         </Table>
       </TableContainer>
 
-      {/* Ban Dialog */}
+      {/* Pagination bar — hidden in search mode */}
+      {!isSearchMode && (
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', mt: 2, gap: 2 }}>
+          <Button size="small" variant="outlined" onClick={handlePrevPage} disabled={page <= 1}>
+            Prev
+          </Button>
+          <Typography variant="body2">Page {page}</Typography>
+          <Button size="small" variant="outlined" onClick={handleNextPage} disabled={isLastPage}>
+            Next
+          </Button>
+        </Box>
+      )}
+
+      {/* Ban Dialog — unchanged */}
       <Dialog open={banDialogOpen} onClose={() => setBanDialogOpen(false)}>
         <DialogTitle>Ban User</DialogTitle>
         <DialogContent>
@@ -185,7 +331,7 @@ export const AdminUsersTab: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Role Assignment Dialog */}
+      {/* Role Assignment Dialog — unchanged */}
       <Dialog open={roleDialogOpen} onClose={() => setRoleDialogOpen(false)}>
         <DialogTitle>Assign Role</DialogTitle>
         <DialogContent sx={{ minWidth: 300 }}>
