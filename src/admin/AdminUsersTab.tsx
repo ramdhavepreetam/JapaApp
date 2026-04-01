@@ -63,6 +63,12 @@ export const AdminUsersTab: React.FC = () => {
     fetchUsers();
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
+
   const handleSearchChange = (value: string) => {
     setSearchQuery(value);
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -100,6 +106,7 @@ export const AdminUsersTab: React.FC = () => {
       const { users: data, lastDoc } = await adminService.getAllUsers(PAGE_SIZE, currentCursor);
       if (data.length === 0) {
         setIsLastPage(true);
+        setLoading(false);
         return; // don't advance page counter; table shows "No more users."
       }
       // Push current cursor onto stack before advancing
@@ -127,7 +134,7 @@ export const AdminUsersTab: React.FC = () => {
       setCursorStack(newStack);
       setCurrentCursor(lastDoc ?? undefined);
       setUsers(data);
-      setIsLastPage(false);
+      setIsLastPage(data.length < PAGE_SIZE);
       setPage(prev => prev - 1);
     } catch (err: any) {
       setError(err.message || 'Failed to load previous page');
@@ -195,8 +202,9 @@ export const AdminUsersTab: React.FC = () => {
     return u.lastLoginAt.toDate() >= sevenDaysAgo;
   }).length;
 
+  // Full-page fallback only for initial load failures
   if (loading && users.length === 0) return <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>;
-  if (error) return <Alert severity="error">{error}</Alert>;
+  if (error && users.length === 0) return <Alert severity="error">{error}</Alert>;
 
   return (
     <Box>
@@ -206,6 +214,12 @@ export const AdminUsersTab: React.FC = () => {
         <Chip label={`Active 7d (newest 50): ${activeCount}`} color="success" variant="outlined" />
         <Chip label={`Logged in 7d (newest 50): ${loggedInCount}`} color="primary" variant="outlined" />
       </Box>
+
+      {error && users.length > 0 && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
 
       {/* Search + heading */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 1 }}>
