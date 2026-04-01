@@ -1,5 +1,5 @@
 import { db } from '../lib/firebase';
-import { doc, getDoc, setDoc, updateDoc, increment, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, increment, Timestamp, serverTimestamp } from 'firebase/firestore';
 import { User } from 'firebase/auth';
 import { calculateStreak } from './streakUtils';
 import { runWithFallback } from './resilience';
@@ -70,6 +70,20 @@ export const userService = {
             },
             "Ensure User Exists"
         );
+    },
+
+    updateLastLogin: async (uid: string): Promise<void> => {
+        try {
+            // Deliberate exception to the project-wide runWithFallback rule:
+            // this is a fire-and-forget write. Failure is non-fatal and must never
+            // block the sign-in flow, so we swallow the error here rather than
+            // routing through resilience.ts which would suppress it silently anyway.
+            await updateDoc(doc(db, 'users', uid), {
+                lastLoginAt: serverTimestamp(),
+            });
+        } catch (err) {
+            console.warn('updateLastLogin failed (non-fatal):', err);
+        }
     },
 
     // Optimized method for when we know the user is new
