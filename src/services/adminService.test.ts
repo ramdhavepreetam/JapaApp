@@ -25,7 +25,10 @@ vi.mock('firebase/firestore', () => ({
   limit: vi.fn(),
   orderBy: vi.fn(),
   where: vi.fn(),
-  getCountFromServer: vi.fn()
+  getCountFromServer: vi.fn(),
+  serverTimestamp: vi.fn(() => ({ _type: 'serverTimestamp' })),
+  Timestamp: { now: vi.fn(() => ({ seconds: 0, nanoseconds: 0 })) },
+  startAfter: vi.fn()
 }));
 
 describe('adminService', () => {
@@ -92,7 +95,7 @@ describe('adminService', () => {
         expect.anything(),
         { featured: true }
       );
-      
+
       expect(mockBatch.set).toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({
@@ -102,5 +105,45 @@ describe('adminService', () => {
       );
       expect(mockBatch.commit).toHaveBeenCalledTimes(1);
     });
+  });
+});
+
+describe('getAllUsers (paginated)', () => {
+  it('returns users array and lastDoc on first page', async () => {
+    const mockDocs = [
+      { id: 'u1', data: () => ({ displayName: 'Alice', email: 'a@x.com', joinedAt: { toDate: () => new Date() } }) },
+      { id: 'u2', data: () => ({ displayName: 'Bob',   email: 'b@x.com', joinedAt: { toDate: () => new Date() } }) },
+    ];
+    const { getDocs, query } = await import('firebase/firestore');
+    vi.mocked(getDocs).mockResolvedValueOnce({ docs: mockDocs } as any);
+    vi.mocked(query).mockReturnValue({} as any);
+
+    const result = await adminService.getAllUsers(50);
+
+    expect(result).toHaveProperty('users');
+    expect(result).toHaveProperty('lastDoc');
+    expect(result.users).toHaveLength(2);
+    expect(result.lastDoc).toBe(mockDocs[1]); // last doc in results
+  });
+
+  it('passes cursor to startAfter when provided', async () => {
+    const { getDocs, query, startAfter } = await import('firebase/firestore');
+    vi.mocked(getDocs).mockResolvedValueOnce({ docs: [] } as any);
+    vi.mocked(query).mockReturnValue({} as any);
+    const fakeCursor = { id: 'cursor-doc' } as any;
+
+    await adminService.getAllUsers(50, fakeCursor);
+
+    expect(startAfter).toHaveBeenCalledWith(fakeCursor);
+  });
+
+  it('returns lastDoc as null when no results', async () => {
+    const { getDocs, query } = await import('firebase/firestore');
+    vi.mocked(getDocs).mockResolvedValueOnce({ docs: [] } as any);
+    vi.mocked(query).mockReturnValue({} as any);
+
+    const result = await adminService.getAllUsers(50);
+
+    expect(result.lastDoc).toBeNull();
   });
 });

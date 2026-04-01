@@ -11,7 +11,9 @@ import {
   writeBatch,
   Timestamp,
   orderBy,
-  getCountFromServer
+  getCountFromServer,
+  DocumentSnapshot,
+  startAfter
 } from 'firebase/firestore';
 import { AdminAction, AdminCommunityView, AdminUserView, AdminLog } from '../types/admin';
 import { UserRole } from '../types/auth';
@@ -41,10 +43,21 @@ export const adminService = {
   /**
    * USERS
    */
-  getAllUsers: async (limitCount: number = 50): Promise<AdminUserView[]> => {
-    const q = query(collection(db, 'users'), limit(limitCount));
+  getAllUsers: async (
+    pageSize: number = 50,
+    cursor?: DocumentSnapshot
+  ): Promise<{ users: AdminUserView[]; lastDoc: DocumentSnapshot | null }> => {
+    // Note: docs missing 'joinedAt' are silently excluded by orderBy — acceptable,
+    // as onUserCreated Cloud Function sets joinedAt on all new signups.
+    // IMPORTANT: startAfter must be added BEFORE limit, or Firestore clips
+    // results before applying the cursor, giving wrong pages.
+    const constraints: any[] = [orderBy('joinedAt', 'desc')];
+    if (cursor) constraints.push(startAfter(cursor));
+    constraints.push(limit(pageSize));
+    const q = query(collection(db, 'users'), ...constraints);
     const snap = await getDocs(q);
-    return snap.docs.map(d => {
+
+    const users = snap.docs.map(d => {
       const data = d.data();
       return {
         uid: d.id,
@@ -53,15 +66,14 @@ export const adminService = {
         role: data.role || 'user',
         status: data.status || 'active',
         plan: data.plan || 'free',
-        stats: data.stats || {
-          totalMalas: 0,
-          totalMantras: 0,
-          streakDays: 0,
-          lastChantDate: null
-        },
+        stats: data.stats || { totalMalas: 0, totalMantras: 0, streakDays: 0, lastChantDate: null },
         joinedAt: data.joinedAt || Timestamp.now(),
+        lastLoginAt: data.lastLoginAt,
       } as AdminUserView;
     });
+
+    const lastDoc = snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] : null;
+    return { users, lastDoc };
   },
 
   searchUsers: async (term: string): Promise<AdminUserView[]> => {
