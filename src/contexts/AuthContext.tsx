@@ -7,6 +7,7 @@ import {
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import { AuthUser } from '../types/auth';
+import { userService } from '../services/userService';
 
 interface AuthContextType {
     user: User | null;
@@ -76,7 +77,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         const provider = new GoogleAuthProvider();
         try {
-            await signInWithPopup(auth, provider);
+            const { user } = await signInWithPopup(auth, provider);
+            // Fire-and-forget: update lastLoginAt. Non-critical — error is swallowed inside updateLastLogin.
+            userService.updateLastLogin(user.uid);
         } catch (error: any) {
             const silent = ['auth/cancelled-popup-request', 'auth/popup-closed-by-user'];
             if (!silent.includes(error?.code)) {
