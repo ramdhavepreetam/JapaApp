@@ -37,6 +37,6 @@ export function formatRelativeTime(
   if (diffDays <= 0) return 'Today';
   if (diffDays === 1) return 'Yesterday';
   if (diffDays < 7) return `${diffDays} days ago`;
-  const weeks = Math.round(diffDays / 7);
+  const weeks = Math.floor(diffDays / 7);
   return `${weeks} week${weeks > 1 ? 's' : ''} ago`;
 }

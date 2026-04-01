@@ -37,6 +37,14 @@ describe('formatRelativeTime', () => {
     expect(formatRelativeTime('2026-03-17')).toBe('2 weeks ago');
   });
 
+  it('returns "1 week ago" for 10 days prior', () => {
+    expect(formatRelativeTime('2026-03-21')).toBe('1 week ago');
+  });
+
+  it('returns "1 week ago" for 11 days prior (floor, not round)', () => {
+    expect(formatRelativeTime('2026-03-20')).toBe('1 week ago');
+  });
+
   it('returns "Today" for a Firestore Timestamp for today', () => {
     const ts = Timestamp.fromDate(new Date('2026-03-31T08:00:00'));
     expect(formatRelativeTime(ts)).toBe('Today');
