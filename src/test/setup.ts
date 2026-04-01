@@ -27,6 +27,15 @@ vi.mock('firebase/firestore', async () => {
         })),
         Timestamp: {
             now: vi.fn(() => ({ seconds: Date.now() / 1000, nanoseconds: 0 })),
+            fromDate: vi.fn((date: Date) => {
+                const seconds = Math.floor(date.getTime() / 1000);
+                const nanoseconds = (date.getTime() % 1000) * 1000000;
+                return {
+                    seconds,
+                    nanoseconds,
+                    toDate: () => date
+                };
+            }),
         },
         addDoc: vi.fn().mockResolvedValue({ id: 'mock-doc-id' }),
         updateDoc: vi.fn(),
