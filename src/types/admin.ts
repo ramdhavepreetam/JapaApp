@@ -33,6 +33,7 @@ export interface AdminUserView {
     lastChantDate: string | null;
   };
   joinedAt: Timestamp;
+  lastLoginAt?: Timestamp;
 }
 
 export interface AdminCommunityView {
