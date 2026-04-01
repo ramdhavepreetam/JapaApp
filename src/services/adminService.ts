@@ -77,31 +77,43 @@ export const adminService = {
   },
 
   searchUsers: async (term: string): Promise<AdminUserView[]> => {
-    // Note: A true search requires Algolia. Using lightweight prefix search on displayName & email.
-    // Client-side filtering is typically applied later for more robust filtering.
-    // We will fetch up to 100 users and filter them if full text is needed, or just standard query.
-    
-    // As per prompt, filter by displayName or email client-side. We fetch a broader range or just 
-    // fetch all within limits and let client filter, OR do a basic query here.
-    const q = query(collection(db, 'users'), limit(100)); // Fetching 100 to search client-side
-    const snap = await getDocs(q);
-    const lowerTerm = term.toLowerCase();
-
-    return snap.docs.map(d => {
+    const end = term + '\uf8ff';
+    const toView = (d: any): AdminUserView => {
       const data = d.data();
       return {
         uid: d.id,
-        displayName: data.displayName || 'Unknown',
-        email: data.email || 'Unknown',
+        displayName: data.displayName || 'Unknown User',
+        email: data.email || 'No Email',
         role: data.role || 'user',
         status: data.status || 'active',
         plan: data.plan || 'free',
         stats: data.stats || { totalMalas: 0, totalMantras: 0, streakDays: 0, lastChantDate: null },
         joinedAt: data.joinedAt || Timestamp.now(),
-      } as AdminUserView;
-    }).filter(user => 
-      user.displayName.toLowerCase().includes(lowerTerm) || 
-      user.email.toLowerCase().includes(lowerTerm)
+        lastLoginAt: data.lastLoginAt,
+      };
+    };
+
+    const [nameSnap, emailSnap] = await Promise.all([
+      getDocs(query(
+        collection(db, 'users'),
+        where('displayName', '>=', term),
+        where('displayName', '<=', end),
+        limit(50)
+      )),
+      getDocs(query(
+        collection(db, 'users'),
+        where('email', '>=', term),
+        where('email', '<=', end),
+        limit(50)
+      )),
+    ]);
+
+    const map = new Map<string, AdminUserView>();
+    for (const d of nameSnap.docs) map.set(d.id, toView(d));
+    for (const d of emailSnap.docs) map.set(d.id, toView(d));
+
+    return Array.from(map.values()).sort((a, b) =>
+      a.displayName.localeCompare(b.displayName)
     );
   },
 

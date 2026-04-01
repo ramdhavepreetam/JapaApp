@@ -147,3 +147,37 @@ describe('getAllUsers (paginated)', () => {
     expect(result.lastDoc).toBeNull();
   });
 });
+
+describe('searchUsers (server-side prefix)', () => {
+  it('merges and deduplicates results from displayName and email queries', async () => {
+    const { getDocs, query } = await import('firebase/firestore');
+    // First call returns displayName match; second call returns email match for same user
+    const sharedDoc = { id: 'u1', data: () => ({ displayName: 'Alice', email: 'alice@x.com' }) };
+    vi.mocked(getDocs)
+      .mockResolvedValueOnce({ docs: [sharedDoc] } as any)  // displayName query
+      .mockResolvedValueOnce({ docs: [sharedDoc] } as any); // email query
+    vi.mocked(query).mockReturnValue({} as any);
+
+    const results = await adminService.searchUsers('ali');
+
+    // Deduplicated: same uid appears only once
+    expect(results).toHaveLength(1);
+    expect(results[0].uid).toBe('u1');
+  });
+
+  it('returns results sorted by displayName ASC', async () => {
+    const { getDocs, query } = await import('firebase/firestore');
+    vi.mocked(getDocs)
+      .mockResolvedValueOnce({ docs: [
+        { id: 'u2', data: () => ({ displayName: 'Zara', email: 'z@x.com' }) },
+        { id: 'u1', data: () => ({ displayName: 'Alice', email: 'a@x.com' }) },
+      ] } as any)
+      .mockResolvedValueOnce({ docs: [] } as any);
+    vi.mocked(query).mockReturnValue({} as any);
+
+    const results = await adminService.searchUsers('a');
+
+    expect(results[0].displayName).toBe('Alice');
+    expect(results[1].displayName).toBe('Zara');
+  });
+});
