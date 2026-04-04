@@ -18,7 +18,6 @@ const STORAGE_KEY = 'japa_storage_v1';
 
 export type SessionState = {
     active: boolean;
-    paused: boolean;
     startedAt: string | null;
     updatedAt: string | null;
     counts: number;
@@ -49,7 +48,6 @@ const INITIAL_STATE: StorageSchema = {
     totalMalas: 0,
     session: {
         active: false,
-        paused: false,
         startedAt: null,
         updatedAt: null,
         counts: 0,
@@ -67,7 +65,11 @@ export const storage = {
             return {
                 ...INITIAL_STATE,
                 ...parsed,
-                session: { ...INITIAL_STATE.session, ...(parsed.session || {}) },
+                session: (() => {
+                    const s: any = { ...INITIAL_STATE.session, ...(parsed.session || {}) };
+                    delete s.paused;
+                    return s as SessionState;
+                })(),
                 pendingSync: Array.isArray(parsed.pendingSync) ? parsed.pendingSync : []
             };
         } catch (e) {
@@ -96,7 +98,7 @@ export const storage = {
         data.currentCount += 1;
         data.history[today].counts += 1;
         data.totalCounts += 1;
-        if (data.session.active && !data.session.paused) {
+        if (data.session.active) {
             data.session.counts += 1;
             data.session.updatedAt = new Date().toISOString();
         }
@@ -109,7 +111,7 @@ export const storage = {
             data.totalMalas += 1; // lifetime counter — never resets
             data.history[today].malas += 1;
             malaCompleted = true;
-            if (data.session.active && !data.session.paused) {
+            if (data.session.active) {
                 data.session.malas += 1;
                 data.session.updatedAt = new Date().toISOString();
             }
@@ -136,27 +138,8 @@ export const storage = {
         const data = storage.get();
         const now = new Date().toISOString();
         data.session.active = true;
-        data.session.paused = false;
         data.session.startedAt = data.session.startedAt || now;
         data.session.updatedAt = now;
-        storage.save(data);
-        return data;
-    },
-
-    pauseSession: () => {
-        const data = storage.get();
-        if (!data.session.active) return data;
-        data.session.paused = true;
-        data.session.updatedAt = new Date().toISOString();
-        storage.save(data);
-        return data;
-    },
-
-    resumeSession: () => {
-        const data = storage.get();
-        if (!data.session.active) return data;
-        data.session.paused = false;
-        data.session.updatedAt = new Date().toISOString();
         storage.save(data);
         return data;
     },
@@ -165,7 +148,6 @@ export const storage = {
         const data = storage.get();
         data.session = {
             active: false,
-            paused: false,
             startedAt: null,
             updatedAt: null,
             counts: 0,

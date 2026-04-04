@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Volume2, VolumeX, RotateCcw, History, Sparkles, Target, Users, Play, Pause, RotateCw, WifiOff, Wifi } from 'lucide-react';
+import { Volume2, VolumeX, RotateCcw, History, Sparkles, Target, Users, Play, RotateCw, WifiOff, Wifi } from 'lucide-react';
 import { storage, StorageSchema, PendingSyncItem, getTodayDate } from '../lib/storage';
 import { BeadRing } from './BeadRing';
-import { Pledge } from '../types/pledge';
+import { Pledge, PersonalPledge } from '../types/pledge';
 import { Box, IconButton, Button, Typography, Chip, useTheme, Zoom, LinearProgress } from '@mui/material';
 import { useAuth } from '../contexts/AuthContext';
 import { useCommunity } from '../contexts/CommunityContext';
@@ -20,6 +20,10 @@ interface JapaCounterProps {
     // Legacy support
     activePledge?: Pledge | null;
 
+    // Personal pledge mode
+    activePersonalPledge?: PersonalPledge | null;
+    onPersonalPledgeComplete?: (pledge: PersonalPledge) => void;
+
     // New Props
     mode?: 'personal' | 'pledge' | 'community';
     contextId?: string; // pledgeId or communityId
@@ -29,16 +33,21 @@ interface JapaCounterProps {
 
 export const JapaCounter: React.FC<JapaCounterProps> = ({
     activePledge,
+    activePersonalPledge,
+    onPersonalPledgeComplete,
     onViewReport,
-    mode = activePledge ? 'pledge' : 'personal',
-    contextId = activePledge?.id,
+    mode: modeProp = activePledge ? 'pledge' : 'personal',
+    contextId: contextIdProp = activePledge?.id,
     onSaved,
-    mantra = activePledge?.mantra
+    mantra = activePledge?.mantra ?? activePersonalPledge?.mantra
 }) => {
+    const mode = activePersonalPledge ? 'personal-pledge' : modeProp;
+    const contextId = activePersonalPledge ? activePersonalPledge.id : contextIdProp;
     const { t } = useTranslation();
     const { user } = useAuth();
     const { myPledges, refresh: refreshPledges } = useCommunity();
     const [data, setData] = useState<StorageSchema>(storage.get());
+    const personalMalasAdded = useRef(0);
     const [soundEnabled, setSoundEnabled] = useState(true);
     const [feedback, setFeedback] = useState<string | null>(null);
     const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -69,6 +78,10 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
     useEffect(() => {
         setData(storage.get());
     }, []);
+
+    useEffect(() => {
+        personalMalasAdded.current = 0;
+    }, [activePersonalPledge?.id]);
 
     useEffect(() => {
         mantraService.getMantras().then(list => {
@@ -212,12 +225,6 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
             setTimeout(() => setFeedback(null), 2000);
             return;
         }
-        if (data.session.paused) {
-            setFeedback(t('counter.paused'));
-            setTimeout(() => setFeedback(null), 2000);
-            return;
-        }
-
         triggerHaptic(15);
         playClickSound();
 
@@ -228,7 +235,7 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
             triggerHaptic(400);
 
             const msg = mode === 'community' ? t('counter.malaOffered')
-                : mode === 'pledge' ? t('counter.contributionSent')
+                : (mode === 'pledge' || mode === 'personal-pledge') ? t('counter.contributionSent')
                     : t('counter.malaCompleted');
 
             setFeedback(msg);
@@ -239,21 +246,32 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
                 if (mode === 'community' && contextId) {
                     await submitCommunityEntry(1, 108);
                 }
-                // 2. Pledge Mode
+                // 2. Community Pledge Mode
                 else if (mode === 'pledge' && contextId) {
                     import('../services/pledgeService').then(({ pledgeService: communityService }) => {
                         communityService.contribute(contextId!, user.uid, 1)
                             .then(() => {
-                                // Re-fetch pledges & myPledges so UI updates
-                                // (onSnapshot may be dead in mock/offline mode)
                                 refreshPledges();
                             })
                             .catch((err: unknown) => console.error('Pledge contribute failed', err));
                     });
-                    // Pledges also update personal stats separately
                     userService.updateUserStats(user.uid, 1, 108).catch(() => { queueSync(108, 1); syncPending(); });
                 }
-                // 3. Personal Mode
+                // 3. Personal Pledge Mode
+                else if (mode === 'personal-pledge' && contextId && activePersonalPledge) {
+                    personalMalasAdded.current += 1;
+                    import('../services/personalPledgeService').then(({ personalPledgeService }) => {
+                        personalPledgeService.contributeToPersonalPledge(user.uid, contextId!, 1)
+                            .catch((err: unknown) => console.error('Personal pledge contribute failed', err));
+                    });
+                    userService.updateUserStats(user.uid, 1, 108).catch(() => { queueSync(108, 1); syncPending(); });
+
+                    const newTotal = activePersonalPledge.currentMalas + personalMalasAdded.current;
+                    if (newTotal >= activePersonalPledge.targetMalas) {
+                        onPersonalPledgeComplete?.(activePersonalPledge);
+                    }
+                }
+                // 4. Personal Mode
                 else {
                     userService.updateUserStats(user.uid, 1, 108).catch(() => { queueSync(108, 1); syncPending(); });
                 }
@@ -268,8 +286,6 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
         if (confirm("Reset today's progress?")) { setData({ ...storage.resetToday() }); }
     };
     const handleStartSession = () => { setData({ ...storage.startSession() }); setFeedback(t('counter.startSession')); setTimeout(() => setFeedback(null), 2000); };
-    const handlePauseSession = () => { setData({ ...storage.pauseSession() }); setFeedback(t('counter.paused')); setTimeout(() => setFeedback(null), 2000); };
-    const handleResumeSession = () => { setData({ ...storage.resumeSession() }); setFeedback(t('counter.resume')); setTimeout(() => setFeedback(null), 2000); };
 
     const handleResetSession = async () => {
         if (!data.session.active && data.session.counts === 0) return;
@@ -316,6 +332,9 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
                 position: 'relative',
                 cursor: 'pointer',
                 userSelect: 'none',
+                WebkitUserSelect: 'none',
+                MozUserSelect: 'none',
+                WebkitTouchCallout: 'none',
                 touchAction: 'manipulation'
             }}
             onClick={handleTap}
@@ -397,6 +416,23 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
                     </Box>
                 )}
 
+                {mode === 'personal-pledge' && activePersonalPledge && (
+                    <Box sx={{ position: 'absolute', top: 16, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, zIndex: 5 }}>
+                        <Zoom in={true}>
+                            <Chip
+                                icon={<Sparkles size={14} color={theme.palette.background.paper} />}
+                                label={`Personal: ${activePersonalPledge.title}`}
+                                sx={{ bgcolor: 'secondary.main', color: 'secondary.contrastText', boxShadow: 3, fontWeight: 700 }}
+                            />
+                        </Zoom>
+                        <Box sx={{ display: 'flex', gap: 2, bgcolor: 'rgba(255,255,255,0.9)', px: 2, py: 0.5, borderRadius: 4, boxShadow: 1 }}>
+                            <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontWeight: 600, color: 'primary.dark' }}>
+                                <Target size={14} /> {activePersonalPledge.currentMalas} / {activePersonalPledge.targetMalas} malas
+                            </Typography>
+                        </Box>
+                    </Box>
+                )}
+
                 {/* Community Mode overlay handled by parent usually, but good to have indicator if standalone */}
 
                 {/* Mantra Display */}
@@ -412,7 +448,11 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
                         width: '100%',
                         maxWidth: 360,
                         minHeight: 80, // Reserve space to prevent layout shift
-                        pointerEvents: 'auto'
+                        pointerEvents: 'auto',
+                        userSelect: 'none',
+                        WebkitUserSelect: 'none',
+                        MozUserSelect: 'none',
+                        WebkitTouchCallout: 'none'
                     }}>
                         <Typography
                             variant="body1"
@@ -424,7 +464,9 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
                                 color: 'primary.main',
                                 textAlign: 'center',
                                 transition: 'font-size 0.2s ease-in-out',
-                                px: 2
+                                px: 2,
+                                userSelect: 'none',
+                                WebkitUserSelect: 'none',
                             }}
                         >
                             "{mantra}"
@@ -523,21 +565,6 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
                         </Button>
                     ) : (
                         <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', justifyContent: 'center' }}>
-                            {data.session.paused ? (
-                                <Button
-                                    variant="contained" color="primary" startIcon={<Play size={18} />}
-                                    onClick={(e) => { e.stopPropagation(); handleResumeSession(); }}
-                                >
-                                    {t('counter.resume')}
-                                </Button>
-                            ) : (
-                                <Button
-                                    variant="outlined" color="secondary" startIcon={<Pause size={18} />}
-                                    onClick={(e) => { e.stopPropagation(); handlePauseSession(); }}
-                                >
-                                    {t('counter.pause')}
-                                </Button>
-                            )}
                             <Button
                                 variant="outlined" color="error" startIcon={<RotateCw size={18} />}
                                 onClick={(e) => { e.stopPropagation(); handleResetSession(); }}
@@ -550,7 +577,7 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
                     <Button
                         variant="contained" color="secondary"
                         onClick={(e) => { e.stopPropagation(); handleTap(); }}
-                        disabled={!data.session.active || data.session.paused}
+                        disabled={!data.session.active}
                         sx={{ borderRadius: 8, px: 4 }}
                     >
                         {t('counter.addChant')}
