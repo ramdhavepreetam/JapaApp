@@ -93,7 +93,7 @@ function App() {
                 flexDirection: 'column'
             }}>
                 {/* Global Notification Bell (Overlay) - Only show on main views */}
-                {['counter', 'pledges', 'communities', 'profile'].includes(view) && (
+                {['pledges', 'communities', 'profile'].includes(view) && (
                     <Box sx={{ position: 'absolute', top: 16, right: 16, zIndex: 50 }}>
                         <IconButton
                             onClick={() => setView('notifications')}
