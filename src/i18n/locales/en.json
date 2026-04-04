@@ -8,14 +8,12 @@
   },
   "counter": {
     "startPrompt": "Start a session to begin 🙏",
-    "paused": "Session paused",
     "malaOffered": "Mala Offered to Community! 🌺",
     "contributionSent": "Contribution Sent! 🚩",
     "malaCompleted": "Mala Completed! 🕉️",
     "history": "History",
+    "focus": "Focus",
     "startSession": "Start Session",
-    "resume": "Resume",
-    "pause": "Pause",
     "resetSession": "Reset Session",
     "addChant": "Add Chant",
     "today": "Today",
@@ -114,7 +112,14 @@
     "joinCause": "Join This Cause",
     "joinYourCause": "Join Your Cause",
     "leaveConfirm": "Are you sure you want to leave this cause? Your progress will be reset.",
-    "leaveCause": "Leave Cause"
+    "leaveCause": "Leave Cause",
+    "personalTab": "Personal",
+    "communityTab": "Community",
+    "newPersonalPledge": "New Personal Pledge",
+    "contribute": "Contribute",
+    "contributeMalas": "How many malas did you complete?",
+    "noPledgesYet": "No pledges yet. Start your first personal cause.",
+    "noJoinedPledges": "You haven't joined any community pledges yet."
   },
   "report": {
     "title": "Your Journey",

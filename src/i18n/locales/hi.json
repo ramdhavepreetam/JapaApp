@@ -8,14 +8,12 @@
   },
   "counter": {
     "startPrompt": "जाप शुरू करने के लिए सत्र प्रारंभ करें 🙏",
-    "paused": "सत्र रुका हुआ है",
     "malaOffered": "समुदाय को माला अर्पित! 🌺",
     "contributionSent": "योगदान भेजा गया! 🚩",
     "malaCompleted": "माला पूर्ण! 🕉️",
     "history": "इतिहास",
+    "focus": "फ़ोकस",
     "startSession": "सत्र शुरू करें",
-    "resume": "जारी रखें",
-    "pause": "रुकें",
     "resetSession": "सत्र रीसेट करें",
     "addChant": "जाप जोड़ें",
     "today": "आज",
@@ -114,7 +112,14 @@
     "joinCause": "इस कारण में शामिल हों",
     "joinYourCause": "अपने कारण में शामिल हों",
     "leaveConfirm": "क्या आप वाकई इस कारण को छोड़ना चाहते हैं? आपकी प्रगति रीसेट हो जाएगी।",
-    "leaveCause": "कारण छोड़ें"
+    "leaveCause": "कारण छोड़ें",
+    "personalTab": "व्यक्तिगत",
+    "communityTab": "समुदाय",
+    "newPersonalPledge": "नई व्यक्तिगत प्रतिज्ञा",
+    "contribute": "योगदान करें",
+    "contributeMalas": "आपने कितनी माला पूरी की?",
+    "noPledgesYet": "अभी कोई प्रतिज्ञा नहीं। अपना पहला व्यक्तिगत संकल्प शुरू करें।",
+    "noJoinedPledges": "आप अभी तक किसी सामुदायिक प्रतिज्ञा में शामिल नहीं हुए हैं।"
   },
   "report": {
     "title": "आपकी यात्रा",
