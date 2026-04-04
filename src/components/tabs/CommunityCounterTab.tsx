@@ -8,11 +8,10 @@ import { Clock, Zap } from 'lucide-react';
 
 interface CommunityCounterTabProps {
     community: Community;
-    onViewReport: () => void;
     onCommunityUpdated?: () => void;
 }
 
-export const CommunityCounterTab: React.FC<CommunityCounterTabProps> = ({ community, onViewReport, onCommunityUpdated }) => {
+export const CommunityCounterTab: React.FC<CommunityCounterTabProps> = ({ community, onCommunityUpdated }) => {
     const { user } = useAuth();
     const [recentEntries, setRecentEntries] = useState<JapaEntry[]>([]);
     const [localTotalMalas, setLocalTotalMalas] = useState(community.totalMalas);
@@ -99,7 +98,6 @@ export const CommunityCounterTab: React.FC<CommunityCounterTabProps> = ({ commun
                 <JapaCounter
                     mode="community"
                     contextId={community.id}
-                    onViewReport={onViewReport}
                     onSaved={handleSaved}
                 />
             </Box>

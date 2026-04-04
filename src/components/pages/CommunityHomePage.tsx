@@ -208,7 +208,6 @@ export const CommunityHomePage: React.FC<CommunityHomePageProps> = ({ communityI
                 {tab === 2 && (
                     <CommunityCounterTab
                         community={community}
-                        onViewReport={() => { }}
                         onCommunityUpdated={refreshCommunity}
                     />
                 )}

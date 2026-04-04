@@ -3,14 +3,14 @@ import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'framer-motion';
 import { JapaCounter } from './components/JapaCounter';
 import { ReportView } from './components/ReportView';
-import { CommunityView } from './components/CommunityView'; // Kept as "Pledges" View
+import { PledgesView } from './components/PledgesView';
 import { ProfileView } from './components/ProfileView';
 import { CommunityListPage } from './components/pages/CommunityListPage';
 import { CommunityCreatePage } from './components/pages/CommunityCreatePage';
 import { CommunityHomePage } from './components/pages/CommunityHomePage';
 import { NotificationsPage } from './components/pages/NotificationsPage';
 import { Flame, Home, User, Users, Bell, Shield } from 'lucide-react';
-import { Pledge } from './types/pledge';
+import { Pledge, PersonalPledge } from './types/pledge';
 import { Box, Paper, BottomNavigation, BottomNavigationAction, IconButton, Badge } from '@mui/material';
 import { CommunityProvider } from './contexts/CommunityContext';
 import { useAuth } from './contexts/AuthContext';
@@ -33,14 +33,27 @@ function App() {
     // Extended View State
     const [view, setView] = useState<'counter' | 'report' | 'pledges' | 'communities' | 'profile' | 'community-create' | 'community-home' | 'notifications' | 'admin'>('counter');
     const [activePledge, setActivePledge] = useState<Pledge | null>(null);
+    const [activePersonalPledge, setActivePersonalPledge] = useState<PersonalPledge | null>(null);
+    const [completedPersonalPledge, setCompletedPersonalPledge] = useState<PersonalPledge | null>(null);
     const [activeCommunityId, setActiveCommunityId] = useState<string | null>(null);
 
     const handleSelectPledge = (pledge: Pledge) => {
         setActivePledge(pledge);
+        setActivePersonalPledge(null);
         setView('counter');
     };
 
-    const handleViewReport = () => setView('report');
+    const handleSelectPersonalPledge = (pledge: PersonalPledge) => {
+        setActivePersonalPledge(pledge);
+        setActivePledge(null);
+        setView('counter');
+    };
+
+    const handlePersonalPledgeComplete = (pledge: PersonalPledge) => {
+        setActivePersonalPledge(null);
+        setCompletedPersonalPledge(pledge);
+        setView('pledges');
+    };
 
     // Unused params are fine in JS/TS if not strict-strict about args, but let's use them to avoid linter
     const handleNavigate = (newView: any, param?: any) => {
@@ -104,8 +117,9 @@ function App() {
                                 style={{ width: '100%', height: '100%' }}
                             >
                                 <JapaCounter
-                                    onViewReport={handleViewReport}
                                     activePledge={activePledge}
+                                    activePersonalPledge={activePersonalPledge}
+                                    onPersonalPledgeComplete={handlePersonalPledgeComplete}
                                 />
                             </motion.div>
                         )}
@@ -130,9 +144,11 @@ function App() {
                                 exit={{ opacity: 0 }}
                                 style={{ width: '100%', height: '100%' }}
                             >
-                                <CommunityView
-                                    onBack={() => setView('counter')}
+                                <PledgesView
                                     onSelectPledge={handleSelectPledge}
+                                    onSelectPersonalPledge={handleSelectPersonalPledge}
+                                    completedPledge={completedPersonalPledge}
+                                    onCelebrationDismiss={() => setCompletedPersonalPledge(null)}
                                 />
                             </motion.div>
                         )}

@@ -15,8 +15,6 @@ import { mantraService } from '../services/mantraService';
 import { Mantra } from '../types/mantra';
 
 interface JapaCounterProps {
-    onViewReport?: () => void;
-
     // Legacy support
     activePledge?: Pledge | null;
 
@@ -35,7 +33,6 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
     activePledge,
     activePersonalPledge,
     onPersonalPledgeComplete,
-    onViewReport: _onViewReport,
     mode: modeProp = activePledge ? 'pledge' : 'personal',
     contextId: contextIdProp = activePledge?.id,
     onSaved,
@@ -329,7 +326,7 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
 
         setData({ ...storage.resetSession() });
         setFocusMode(false);
-        localStorage.removeItem('japa_focus_mode');
+        localStorage.setItem('japa_focus_mode', 'false');
         setFeedback("Session saved & reset");
         setTimeout(() => setFeedback(null), 2000);
         if (mode !== 'community') syncPending();
@@ -630,14 +627,12 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
                                 {t('counter.startSession')}
                             </Button>
                         ) : (
-                            <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', justifyContent: 'center' }}>
-                                <Button
-                                    variant="outlined" color="error" startIcon={<RotateCw size={18} />}
-                                    onClick={(e) => { e.stopPropagation(); handleResetSession(); }}
-                                >
-                                    {t('counter.resetSession')}
-                                </Button>
-                            </Box>
+                            <Button
+                                variant="outlined" color="error" startIcon={<RotateCw size={18} />}
+                                onClick={(e) => { e.stopPropagation(); handleResetSession(); }}
+                            >
+                                {t('counter.resetSession')}
+                            </Button>
                         )}
 
                         <Button
