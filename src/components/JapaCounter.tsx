@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Volume2, VolumeX, RotateCcw, History, Sparkles, Target, Users, Play, RotateCw, WifiOff, Wifi } from 'lucide-react';
+import { Volume2, VolumeX, RotateCcw, Sparkles, Target, Users, Play, RotateCw, WifiOff, Wifi } from 'lucide-react';
 import { storage, StorageSchema, PendingSyncItem, getTodayDate } from '../lib/storage';
 import { BeadRing } from './BeadRing';
 import { Pledge, PersonalPledge } from '../types/pledge';
@@ -35,7 +35,7 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
     activePledge,
     activePersonalPledge,
     onPersonalPledgeComplete,
-    onViewReport,
+    onViewReport: _onViewReport,
     mode: modeProp = activePledge ? 'pledge' : 'personal',
     contextId: contextIdProp = activePledge?.id,
     onSaved,
@@ -51,6 +51,18 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
     const [soundEnabled, setSoundEnabled] = useState(true);
     const [feedback, setFeedback] = useState<string | null>(null);
     const [isOnline, setIsOnline] = useState(navigator.onLine);
+    const [focusMode, setFocusMode] = useState<boolean>(() =>
+        localStorage.getItem('japa_focus_mode') === 'true'
+    );
+    // Focus mode is only effective when a session is active
+    const effectiveFocusMode = focusMode && data.session.active;
+
+    const toggleFocusMode = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const next = !focusMode;
+        setFocusMode(next);
+        localStorage.setItem('japa_focus_mode', String(next));
+    };
     const [mantras, setMantras] = useState<Mantra[]>([]);
     const [mantrasLoading, setMantrasLoading] = useState(true);
     const [mantraFontSize, setMantraFontSize] = useState<number>(() => {
@@ -335,68 +347,92 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
                 WebkitUserSelect: 'none',
                 MozUserSelect: 'none',
                 WebkitTouchCallout: 'none',
-                touchAction: 'manipulation'
+                touchAction: 'manipulation',
+                background: effectiveFocusMode
+                    ? 'linear-gradient(160deg, #1a0800 0%, #3d1200 60%, #7c2d00 100%)'
+                    : 'transparent',
+                transition: 'background 0.3s ease',
             }}
             onClick={handleTap}
         >
             {/* Mantra Audio Player Bar */}
-            <Box sx={{ pointerEvents: 'auto', zIndex: 20 }} onClick={e => e.stopPropagation()}>
-                <MantraPlayerBar mantras={mantras} loading={mantrasLoading} />
-            </Box>
+            {!effectiveFocusMode && (
+                <Box sx={{ pointerEvents: 'auto', zIndex: 20 }} onClick={e => e.stopPropagation()}>
+                    <MantraPlayerBar mantras={mantras} loading={mantrasLoading} />
+                </Box>
+            )}
 
             {/* Header / Top Bar */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pl: 2, pr: 8, py: 2, zIndex: 10, pointerEvents: 'none' }}>
-                <Box sx={{ display: 'flex', gap: 1, pointerEvents: 'auto' }}>
-                    <IconButton
-                        onClick={(e) => { e.stopPropagation(); setSoundEnabled(!soundEnabled); }}
-                        color="primary"
-                        sx={{ bgcolor: 'rgba(234, 88, 12, 0.1)', '&:hover': { bgcolor: 'rgba(234, 88, 12, 0.2)' } }}
-                    >
-                        {soundEnabled ? <Volume2 size={24} /> : <VolumeX size={24} />}
-                    </IconButton>
-                    <IconButton
-                        onClick={handleReset}
-                        color="secondary"
-                        sx={{ bgcolor: 'rgba(136, 19, 55, 0.1)', '&:hover': { bgcolor: 'rgba(136, 19, 55, 0.2)' } }}
-                    >
-                        <RotateCcw size={24} />
-                    </IconButton>
-                </Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pl: 2, pr: 2, py: 2, zIndex: 10, pointerEvents: 'none' }}>
+                {/* Left icons — hidden in focus mode */}
+                {!effectiveFocusMode && (
+                    <Box sx={{ display: 'flex', gap: 1, pointerEvents: 'auto' }}>
+                        <IconButton
+                            onClick={(e) => { e.stopPropagation(); setSoundEnabled(!soundEnabled); }}
+                            color="primary"
+                            sx={{ bgcolor: 'rgba(234, 88, 12, 0.1)', '&:hover': { bgcolor: 'rgba(234, 88, 12, 0.2)' } }}
+                        >
+                            {soundEnabled ? <Volume2 size={24} /> : <VolumeX size={24} />}
+                        </IconButton>
+                        <IconButton
+                            onClick={handleReset}
+                            color="secondary"
+                            sx={{ bgcolor: 'rgba(136, 19, 55, 0.1)', '&:hover': { bgcolor: 'rgba(136, 19, 55, 0.2)' } }}
+                        >
+                            <RotateCcw size={24} />
+                        </IconButton>
+                    </Box>
+                )}
+                {effectiveFocusMode && <Box />}
 
-                <Box sx={{ pointerEvents: 'auto' }}>
-                    <Button
-                        onClick={(e) => { e.stopPropagation(); onViewReport(); }}
-                        variant="outlined"
-                        color="primary"
-                        startIcon={<History size={20} />}
-                        sx={{ borderRadius: 28, borderWidth: 2, '&:hover': { borderWidth: 2 } }}
-                    >
-                        {t('counter.history')}
-                    </Button>
-                </Box>
+                {/* Focus toggle — only shown when session is active */}
+                {data.session.active && (
+                    <Box sx={{ pointerEvents: 'auto' }}>
+                        <Button
+                            onClick={toggleFocusMode}
+                            variant={effectiveFocusMode ? 'contained' : 'outlined'}
+                            color="secondary"
+                            size="small"
+                            sx={{
+                                borderRadius: 20,
+                                px: 1.5,
+                                py: 0.5,
+                                minWidth: 'auto',
+                                fontSize: '0.7rem',
+                                fontWeight: 700,
+                                lineHeight: 1.2,
+                                ...(effectiveFocusMode && { color: 'secondary.contrastText' }),
+                            }}
+                        >
+                            {t('counter.focus')}
+                        </Button>
+                    </Box>
+                )}
             </Box>
 
             {/* Main Center Content */}
             <Box sx={{ flex: 1, minHeight: 340, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', p: 2 }}>
 
-                <Box sx={{ position: 'absolute', top: 88, left: 16, display: 'flex', gap: 1, zIndex: 6 }}>
-                    <Chip
-                        icon={isOnline ? <Wifi size={14} /> : <WifiOff size={14} />}
-                        label={isOnline ? t('counter.online') : t('counter.offline')}
-                        size="small"
-                        sx={{ bgcolor: isOnline ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: isOnline ? '#047857' : '#b91c1c' }}
-                    />
-                    {data.pendingSync.length > 0 && mode !== 'community' && (
+                {!effectiveFocusMode && (
+                    <Box sx={{ position: 'absolute', top: 88, left: 16, display: 'flex', gap: 1, zIndex: 6 }}>
                         <Chip
-                            label={`${data.pendingSync.length} pending`}
+                            icon={isOnline ? <Wifi size={14} /> : <WifiOff size={14} />}
+                            label={isOnline ? t('counter.online') : t('counter.offline')}
                             size="small"
-                            sx={{ bgcolor: 'rgba(234, 88, 12, 0.12)', color: 'primary.dark' }}
+                            sx={{ bgcolor: isOnline ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: isOnline ? '#047857' : '#b91c1c' }}
                         />
-                    )}
-                </Box>
+                        {data.pendingSync.length > 0 && mode !== 'community' && (
+                            <Chip
+                                label={`${data.pendingSync.length} pending`}
+                                size="small"
+                                sx={{ bgcolor: 'rgba(234, 88, 12, 0.12)', color: 'primary.dark' }}
+                            />
+                        )}
+                    </Box>
+                )}
 
                 {/* Mode Specific Badges */}
-                {mode === 'pledge' && activePledge && (
+                {!effectiveFocusMode && mode === 'pledge' && activePledge && (
                     <Box sx={{ position: 'absolute', top: 16, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, zIndex: 5 }}>
                         <Zoom in={true}>
                             <Chip
@@ -416,7 +452,7 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
                     </Box>
                 )}
 
-                {mode === 'personal-pledge' && activePersonalPledge && (
+                {!effectiveFocusMode && mode === 'personal-pledge' && activePersonalPledge && (
                     <Box sx={{ position: 'absolute', top: 16, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, zIndex: 5 }}>
                         <Zoom in={true}>
                             <Chip
@@ -439,7 +475,7 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
                 {mantra && (
                     <Box sx={{
                         position: 'relative',
-                        mt: 8, // Added to prevent overlap with the badges above
+                        mt: effectiveFocusMode ? 4 : 8,
                         mb: 4,
                         display: 'flex',
                         flexDirection: 'column',
@@ -461,9 +497,9 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
                                 fontFamily: theme.typography.fontFamily,
                                 fontStyle: 'italic',
                                 fontWeight: 500,
-                                color: 'primary.main',
+                                color: effectiveFocusMode ? 'rgba(253,235,208,0.4)' : 'primary.main',
                                 textAlign: 'center',
-                                transition: 'font-size 0.2s ease-in-out',
+                                transition: 'font-size 0.2s ease-in-out, color 0.3s ease',
                                 px: 2,
                                 userSelect: 'none',
                                 WebkitUserSelect: 'none',
@@ -473,66 +509,85 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
                         </Typography>
 
                         {/* Font Size Controls */}
-                        <Box sx={{ display: 'flex', gap: 1, mt: 1, opacity: 0.5, '&:hover': { opacity: 1 }, transition: 'opacity 0.2s' }}>
-                            <Button 
-                                size="small" 
-                                onClick={(e) => handleFontSizeChange(e, -2)}
-                                disabled={mantraFontSize <= 14}
-                                sx={{ minWidth: 'auto', p: 0.5 }}
-                            >
-                                A-
-                            </Button>
-                            <Button 
-                                size="small" 
-                                onClick={(e) => handleFontSizeChange(e, 2)}
-                                disabled={mantraFontSize >= 48}
-                                sx={{ minWidth: 'auto', p: 0.5 }}
-                            >
-                                A+
-                            </Button>
-                        </Box>
+                        {!effectiveFocusMode && (
+                            <Box sx={{ display: 'flex', gap: 1, mt: 1, opacity: 0.5, '&:hover': { opacity: 1 }, transition: 'opacity 0.2s' }}>
+                                <Button
+                                    size="small"
+                                    onClick={(e) => handleFontSizeChange(e, -2)}
+                                    disabled={mantraFontSize <= 14}
+                                    sx={{ minWidth: 'auto', p: 0.5 }}
+                                >
+                                    A-
+                                </Button>
+                                <Button
+                                    size="small"
+                                    onClick={(e) => handleFontSizeChange(e, 2)}
+                                    disabled={mantraFontSize >= 48}
+                                    sx={{ minWidth: 'auto', p: 0.5 }}
+                                >
+                                    A+
+                                </Button>
+                            </Box>
+                        )}
                     </Box>
                 )}
 
-                <BeadRing count={data.currentCount} />
+                {/* BeadRing — scaled up in focus mode */}
+                <Box sx={{ transform: effectiveFocusMode ? 'scale(1.15)' : 'scale(1)', transition: 'transform 0.3s ease' }}>
+                    <BeadRing count={data.currentCount} />
+                </Box>
 
-                <Box sx={{ mt: 1, width: '100%', maxWidth: 320 }}>
+                {/* Progress bar */}
+                <Box sx={{ mt: 1, width: '100%', maxWidth: 320, opacity: effectiveFocusMode ? 0.4 : 1, transition: 'opacity 0.3s ease' }}>
                     <LinearProgress
                         variant="determinate"
                         value={Math.min(100, (data.currentCount / 108) * 100)}
-                        sx={{ height: 8, borderRadius: 6, bgcolor: 'action.hover' }}
+                        sx={{
+                            height: effectiveFocusMode ? 3 : 8,
+                            borderRadius: 6,
+                            bgcolor: 'action.hover',
+                            transition: 'height 0.3s ease',
+                        }}
                     />
-                    <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block', textAlign: 'center' }}>
-                        {data.currentCount} / 108 beads
-                    </Typography>
+                    {!effectiveFocusMode && (
+                        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block', textAlign: 'center' }}>
+                            {data.currentCount} / 108 beads
+                        </Typography>
+                    )}
                 </Box>
 
-                <Box sx={{ mt: 1, display: 'flex', gap: 3, justifyContent: 'center', alignItems: 'center', pointerEvents: 'none' }}>
-                    {/* Today's malas */}
-                    <Box sx={{ textAlign: 'center' }}>
-                        <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 2, fontWeight: 700, display: 'block' }}>
-                            {t('counter.today')}
-                        </Typography>
-                        <Typography variant="h3" color="primary.main" sx={{ lineHeight: 1 }}>
+                {effectiveFocusMode ? (
+                    <Box sx={{ mt: 2, textAlign: 'center' }}>
+                        <Typography variant="h2" sx={{ color: 'rgba(234,88,12,0.9)', fontWeight: 800, lineHeight: 1, textShadow: '0 0 20px rgba(234,88,12,0.4)' }}>
                             {data.history[getTodayDate()]?.malas || 0}
                         </Typography>
-                        <Typography variant="caption" color="text.secondary">{t('counter.malas')}</Typography>
-                    </Box>
-
-                    {/* Divider */}
-                    <Box sx={{ width: '1px', height: 56, bgcolor: 'divider' }} />
-
-                    {/* Lifetime malas — uses totalMalas which never resets */}
-                    <Box sx={{ textAlign: 'center' }}>
-                        <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 2, fontWeight: 700, display: 'block' }}>
-                            {t('counter.lifetime')}
+                        <Typography variant="caption" sx={{ color: 'rgba(253,235,208,0.4)', letterSpacing: 3, textTransform: 'uppercase', display: 'block' }}>
+                            {t('counter.malas')} {t('counter.today').toLowerCase()}
                         </Typography>
-                        <Typography variant="h3" color="secondary.main" sx={{ lineHeight: 1 }}>
-                            {data.totalMalas}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">{t('counter.malas')}</Typography>
                     </Box>
-                </Box>
+                ) : (
+                    <Box sx={{ mt: 1, display: 'flex', gap: 3, justifyContent: 'center', alignItems: 'center', pointerEvents: 'none' }}>
+                        <Box sx={{ textAlign: 'center' }}>
+                            <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 2, fontWeight: 700, display: 'block' }}>
+                                {t('counter.today')}
+                            </Typography>
+                            <Typography variant="h3" color="primary.main" sx={{ lineHeight: 1 }}>
+                                {data.history[getTodayDate()]?.malas || 0}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">{t('counter.malas')}</Typography>
+                        </Box>
+                        <Box sx={{ width: '1px', height: 56, bgcolor: 'divider' }} />
+                        <Box sx={{ textAlign: 'center' }}>
+                            <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 2, fontWeight: 700, display: 'block' }}>
+                                {t('counter.lifetime')}
+                            </Typography>
+                            <Typography variant="h3" color="secondary.main" sx={{ lineHeight: 1 }}>
+                                {data.totalMalas}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">{t('counter.malas')}</Typography>
+                        </Box>
+                    </Box>
+                )}
 
                 <AnimatePresence>
                     {feedback && (
@@ -542,8 +597,16 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
                             exit={{ opacity: 0, y: -20 }}
                             style={{
                                 position: 'absolute', bottom: 80,
-                                backgroundColor: theme.palette.primary.main, color: theme.palette.primary.contrastText,
-                                padding: '12px 32px', borderRadius: 16, boxShadow: '0 8px 32px rgba(234, 88, 12, 0.3)'
+                                backgroundColor: effectiveFocusMode
+                                    ? 'rgba(253,235,208,0.12)'
+                                    : theme.palette.primary.main,
+                                color: effectiveFocusMode
+                                    ? 'rgba(253,235,208,0.9)'
+                                    : theme.palette.primary.contrastText,
+                                padding: '12px 32px', borderRadius: 16,
+                                boxShadow: effectiveFocusMode
+                                    ? '0 8px 32px rgba(0,0,0,0.4)'
+                                    : '0 8px 32px rgba(234, 88, 12, 0.3)',
                             }}
                         >
                             <Typography variant="h6">{feedback}</Typography>
@@ -553,41 +616,43 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
             </Box>
 
             {/* Controls */}
-            <Box sx={{ p: 2, textAlign: 'center', pb: 2 }}>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, alignItems: 'center' }}>
-                    {!data.session.active ? (
+            {!effectiveFocusMode && (
+                <Box sx={{ p: 2, textAlign: 'center', pb: 2 }}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, alignItems: 'center' }}>
+                        {!data.session.active ? (
+                            <Button
+                                variant="contained" color="primary" startIcon={<Play size={18} />}
+                                onClick={(e) => { e.stopPropagation(); handleStartSession(); }}
+                                sx={{ borderRadius: 8, px: 4 }}
+                            >
+                                {t('counter.startSession')}
+                            </Button>
+                        ) : (
+                            <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', justifyContent: 'center' }}>
+                                <Button
+                                    variant="outlined" color="error" startIcon={<RotateCw size={18} />}
+                                    onClick={(e) => { e.stopPropagation(); handleResetSession(); }}
+                                >
+                                    {t('counter.resetSession')}
+                                </Button>
+                            </Box>
+                        )}
+
                         <Button
-                            variant="contained" color="primary" startIcon={<Play size={18} />}
-                            onClick={(e) => { e.stopPropagation(); handleStartSession(); }}
+                            variant="contained" color="secondary"
+                            onClick={(e) => { e.stopPropagation(); handleTap(); }}
+                            disabled={!data.session.active}
                             sx={{ borderRadius: 8, px: 4 }}
                         >
-                            {t('counter.startSession')}
+                            {t('counter.addChant')}
                         </Button>
-                    ) : (
-                        <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', justifyContent: 'center' }}>
-                            <Button
-                                variant="outlined" color="error" startIcon={<RotateCw size={18} />}
-                                onClick={(e) => { e.stopPropagation(); handleResetSession(); }}
-                            >
-                                {t('counter.resetSession')}
-                            </Button>
-                        </Box>
-                    )}
 
-                    <Button
-                        variant="contained" color="secondary"
-                        onClick={(e) => { e.stopPropagation(); handleTap(); }}
-                        disabled={!data.session.active}
-                        sx={{ borderRadius: 8, px: 4 }}
-                    >
-                        {t('counter.addChant')}
-                    </Button>
-
-                    <Typography variant="body2" color="text.secondary" sx={{ opacity: 0.7, fontStyle: 'italic' }}>
-                        {data.session.active ? t('counter.sessionTotal', { malas: data.session.malas }) : t('counter.startPrompt')}
-                    </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ opacity: 0.7, fontStyle: 'italic' }}>
+                            {data.session.active ? t('counter.sessionTotal', { malas: data.session.malas }) : t('counter.startPrompt')}
+                        </Typography>
+                    </Box>
                 </Box>
-            </Box>
+            )}
 
             {/* iOS Haptic Workaround */}
             <div style={{ opacity: 0, position: 'absolute', pointerEvents: 'none' }} onClick={(e) => e.stopPropagation()}>
