@@ -1,4 +1,4 @@
-export type SessionStatus = 'idle' | 'active' | 'paused' | 'completed';
+export type SessionStatus = 'idle' | 'active' | 'completed';
 
 export interface BeadState {
   currentBead: number;

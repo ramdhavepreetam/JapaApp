@@ -11,7 +11,7 @@ const localStorageMock = (() => {
         clear: () => { store = {}; },
     };
 })();
-Object.defineProperty(globalThis, 'localStorage', { value: localStorageMock });
+Object.defineProperty(globalThis, 'localStorage', { value: localStorageMock, writable: true, configurable: true });
 
 describe('storage.SessionState', () => {
     beforeEach(() => localStorageMock.clear());
