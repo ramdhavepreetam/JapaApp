@@ -15,7 +15,7 @@ import { mantraService } from '../services/mantraService';
 import { Mantra } from '../types/mantra';
 
 interface JapaCounterProps {
-    onViewReport: () => void;
+    onViewReport?: () => void;
 
     // Legacy support
     activePledge?: Pledge | null;
@@ -231,7 +231,7 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
     };
 
     const handleTap = async () => {
-        // Prevent interaction if session not active/paused logic is desired
+        // Guard: don't count if session not started
         if (!data.session.active) {
             setFeedback(t('counter.startPrompt'));
             setTimeout(() => setFeedback(null), 2000);
@@ -328,6 +328,8 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
         }
 
         setData({ ...storage.resetSession() });
+        setFocusMode(false);
+        localStorage.removeItem('japa_focus_mode');
         setFeedback("Session saved & reset");
         setTimeout(() => setFeedback(null), 2000);
         if (mode !== 'community') syncPending();
