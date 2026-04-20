@@ -161,20 +161,6 @@ export const pledgeService = {
         if (!user?.uid) throw new Error("Requires authentication to create a pledge");
         return runWithFallback(
             async () => {
-                // 0. Limit Check (Max 50)
-                const limitQ = query(collection(db, 'pledges'), where('creatorId', '==', user.uid));
-                const limitSnap = await getDocs(limitQ);
-                if (limitSnap.size >= 5) {
-                    throw new Error("You can create up to 5 causes. Delete an old one to add a new one.");
-                }
-
-                // 1. Check uniqueness
-                const q = query(collection(db, 'pledges'), where('title', '==', pledge.title));
-                const snapshot = await getDocs(q);
-                if (!snapshot.empty) {
-                    throw new Error("A pledge with this name already exists. Please choose a unique name.");
-                }
-
                 const newPledgeData = {
                     ...pledge,
                     currentMalas: 0,
