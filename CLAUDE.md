@@ -40,7 +40,9 @@ JapaApp is a spiritual companion app for Japa meditation (mantra chanting). User
 
 **Community flow:** Users create/join communities (public or private via invite codes). Membership stored in flat `community_members/{communityId}_{uid}` docs. Subcollections per community: `japa_entries`, `chat_messages`, `posts`.
 
-**Auth flow:** Firebase Auth (Google OAuth popup). `onUserCreated` Cloud Function auto-creates the `users/{uid}` doc. App Check is intentionally disabled — it breaks `signInWithPopup` on mobile.
+**Auth flow:** Firebase Auth (Google OAuth popup). `onUserCreated` Cloud Function auto-creates the `users/{uid}` doc. App Check is intentionally NOT initialized — reCAPTCHA iframe conflicts with the Firebase auth iframe on Safari/Chrome mobile.
+
+**Offline resilience:** `resilience.ts` wraps every Firestore call via `runWithFallback()`. Timeout is 12s (3 sequential ops need room). `permission-denied` is NOT treated as offline — it surfaces as a real error. Once `USE_MOCK_FALLBACK=true`, all calls go to localStorage for the session; resets on `window.online`.
 
 ### Key Services (`src/services/`)
 
@@ -53,7 +55,8 @@ JapaApp is a spiritual companion app for Japa meditation (mantra chanting). User
 | `syncService` | Offline queue management and batch sync |
 | `userService` | Profile, stats, streak calculation |
 | `mantraService` | Fetch curated mantras from Firestore |
-| `pledgeService` | Legacy pledge system (backward compatible) |
+| `pledgeService` | Community pledge CRUD (admin/owner creates; any member contributes) |
+| `personalPledgeService` | Personal pledge CRUD — private subcollection `users/{uid}/pledges` |
 | `adminService` | App-level admin operations (ban, roles) |
 
 ### Firestore Schema
@@ -72,7 +75,7 @@ JapaApp is a spiritual companion app for Japa meditation (mantra chanting). User
 ### Security Rules (`firestore.rules`)
 - Privileged fields (role, status, plan) are Admin SDK–only; client writes are rejected
 - Japa entries are write-once (immutable)
-- Private communities require membership to read
+- Communities are readable by any authenticated user (required for invite-code lookups on private communities)
 - Helper functions: `isAuthenticated()`, `isCommunityMember()`, `isCommunityAdmin()`, `isAppAdmin()`
 
 ### Cloud Functions (`functions/src/index.ts`)

@@ -87,8 +87,9 @@ service cloud.firestore {
         // 1. They are reading their OWN doc
         // 2. They are a member of the community referred to by this doc
         
-        allow read: if isAuthenticated() && 
+        allow read: if isAuthenticated() &&
                     (
+                      resource == null ||
                       resource.data.uid == request.auth.uid ||
                       isCommunityMember(resource.data.communityId)
                     );
@@ -121,9 +122,15 @@ service cloud.firestore {
     // --- Communities Collection ---
 
     match /communities/{communityId} {
-      // Read: Public communities readable by all, Private by members only.
-      // App admins can read all communities (required for admin stats count + panel).
-      allow read: if resource.data.isPrivate == false || isCommunityMember(communityId) || isAppAdmin();
+      // Read: Any authenticated user can read community documents.
+      // Private communities are hidden from discovery lists by client-side query filters
+      // (discoverCommunities uses where('isPrivate', '==', false)), but the documents
+      // themselves must be readable so that invite-code lookups can work:
+      // joinWithInviteCode queries where('inviteCode', '==', code) and the matched doc
+      // may be a private community the user is not yet a member of. If we restrict reads
+      // here Firestore rejects the entire query with permission-denied, which cascades
+      // into offline-fallback mode for the rest of the session.
+      allow read: if isAuthenticated();
       
       // Create: Any authenticated user can create a community
       allow create: if isAuthenticated();
@@ -187,10 +194,21 @@ service cloud.firestore {
       }
     }
 
-    // --- Pledges Collection (Global + Community-scoped) ---
+    // --- Pledges Collection (Community-scoped) ---
+    // Personal pledges are in users/{uid}/pledges — see below.
     match /pledges/{pledgeId} {
-        allow read: if true; // Public pledges
-        allow create: if isAuthenticated();
+        // Public pledges are readable by any authenticated user (including anonymous).
+        // Guests sign in anonymously before reading — this covers the QR code flow.
+        // Non-public pledges require community membership.
+        allow read: if (isAuthenticated() && resource.data.isPublic == true) ||
+                       (isAuthenticated() && (
+                         resource.data.communityId == null ||
+                         isCommunityMember(resource.data.communityId)
+                       ));
+        // Only community admins/owners may create pledges (prevents pledge sprawl).
+        allow create: if isAuthenticated() &&
+          request.resource.data.communityId != null &&
+          isCommunityAdmin(request.resource.data.communityId);
         // Any authenticated user may increment currentMalas (contribute) or participants
         // (join/leave). All other field edits remain creator-only.
         allow update: if isAuthenticated() &&
@@ -207,12 +225,9 @@ service cloud.firestore {
                       );
     }
 
-    // --- User Pledges Subcollection (Legacy) ---
-    // Note: The code might be fetching `users/{uid}/pledges` or similar.
-    // Based on previous logs, it seems to be root `pledges` and maybe `user_pledges`?
-    // Let's check CommunityContext.tsx to be sure, but adding this here is safe.
-
-     match /users/{userId}/pledges/{pledgeId} {
+    // --- Personal Pledges Subcollection ---
+    // Private to the owner. Used by personalPledgeService.ts.
+    match /users/{userId}/pledges/{pledgeId} {
         allow read, write: if isOwner(userId);
     }
 

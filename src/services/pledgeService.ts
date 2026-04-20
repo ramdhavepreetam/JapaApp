@@ -1,8 +1,9 @@
 import { db } from '../lib/firebase';
 import {
-    collection, doc, getDocs, query, where,
+    collection, doc, getDocs, getDoc, query, where,
     increment, writeBatch, Timestamp, addDoc, updateDoc, limit, orderBy
 } from 'firebase/firestore';
+// Note: limit and orderBy still used by getCommunityPledges
 import { User } from 'firebase/auth';
 
 import { Pledge, PledgeParticipant } from '../types/pledge';
@@ -13,41 +14,17 @@ import { track } from '../lib/analytics';
 const LOCAL_STORAGE_KEY_PLEDGES = 'japa_mock_pledges';
 const LOCAL_STORAGE_KEY_PARTICIPANTS = 'japa_mock_participants';
 
-const mockService = {
-    getPledges: async (): Promise<Pledge[]> => {
-        const stored = localStorage.getItem(LOCAL_STORAGE_KEY_PLEDGES);
-        if (stored) {
-            return JSON.parse(stored);
-        }
-        // Seed default mocks
-        const defaults: Pledge[] = [
-            {
-                id: 'mock_1',
-                title: "World Peace Chant (Demo)",
-                description: "1 Million Malas for global harmony and peace. (Running in Demo Mode)",
-                targetMalas: 1000000,
-                currentMalas: 5020,
-                participants: 125,
-                mantra: "Om Shanti Shanti Shanti"
-            },
-            {
-                id: 'mock_2',
-                title: "Om Namah Shivaya (Demo)",
-                description: "Global community chanting. (Running in Demo Mode)",
-                targetMalas: 108000,
-                currentMalas: 1200,
-                participants: 45,
-                mantra: "Om Namah Shivaya"
-            }
-        ];
-        localStorage.setItem(LOCAL_STORAGE_KEY_PLEDGES, JSON.stringify(defaults));
-        return defaults;
-    },
+// Internal helper — reads mock community pledges from localStorage
+const _getMockPledges = (): Pledge[] => {
+    const stored = localStorage.getItem(LOCAL_STORAGE_KEY_PLEDGES);
+    return stored ? JSON.parse(stored) : [];
+};
 
+const mockService = {
     createPledge: async (pledge: Omit<Pledge, 'id' | 'currentMalas' | 'participants'>, user: User): Promise<Pledge> => {
         await new Promise(r => setTimeout(r, 800)); // Simulate network delay
 
-        const pledges = await mockService.getPledges();
+        const pledges = _getMockPledges();
 
         // Limit check
         const myCount = pledges.filter(p => p.creatorId === user.uid).length;
@@ -55,7 +32,7 @@ const mockService = {
             throw new Error("You can create up to 5 causes. Delete an old one to add a new one.");
         }
 
-        if (pledges.some(p => p.title === pledge.title)) {
+        if (pledges.some((p: Pledge) => p.title === pledge.title)) {
             throw new Error("A pledge with this name already exists (Demo).");
         }
 
@@ -87,8 +64,8 @@ const mockService = {
             localStorage.setItem(LOCAL_STORAGE_KEY_PARTICIPANTS, JSON.stringify(participants));
 
             // Decrement pledge count
-            const pledges = await mockService.getPledges();
-            const pIndex = pledges.findIndex(p => p.id === pledgeId);
+            const pledges = _getMockPledges();
+            const pIndex = pledges.findIndex((p: Pledge) => p.id === pledgeId);
             if (pIndex !== -1) {
                 pledges[pIndex].participants = Math.max(0, pledges[pIndex].participants - 1);
                 localStorage.setItem(LOCAL_STORAGE_KEY_PLEDGES, JSON.stringify(pledges));
@@ -120,8 +97,8 @@ const mockService = {
             localStorage.setItem(LOCAL_STORAGE_KEY_PARTICIPANTS, JSON.stringify(participants));
 
             // Update pledge count
-            const pledges = await mockService.getPledges();
-            const pIndex = pledges.findIndex(p => p.id === pledge.id);
+            const pledges = _getMockPledges();
+            const pIndex = pledges.findIndex((p: Pledge) => p.id === pledge.id);
             if (pIndex !== -1) {
                 pledges[pIndex].participants += 1;
                 localStorage.setItem(LOCAL_STORAGE_KEY_PLEDGES, JSON.stringify(pledges));
@@ -145,8 +122,8 @@ const mockService = {
             localStorage.setItem(LOCAL_STORAGE_KEY_PARTICIPANTS, JSON.stringify(participants));
 
             // Update global
-            const pledges = await mockService.getPledges();
-            const pIndex = pledges.findIndex(p => p.id === pledgeId);
+            const pledges = _getMockPledges();
+            const pIndex = pledges.findIndex((p: Pledge) => p.id === pledgeId);
             if (pIndex !== -1) {
                 pledges[pIndex].currentMalas += malas;
                 localStorage.setItem(LOCAL_STORAGE_KEY_PLEDGES, JSON.stringify(pledges));
@@ -155,20 +132,20 @@ const mockService = {
     },
 
     deletePledge: async (pledgeId: string): Promise<void> => {
-        let pledges = await mockService.getPledges();
-        pledges = pledges.filter(p => p.id !== pledgeId);
+        let pledges = _getMockPledges();
+        pledges = pledges.filter((p: Pledge) => p.id !== pledgeId);
         localStorage.setItem(LOCAL_STORAGE_KEY_PLEDGES, JSON.stringify(pledges));
 
         // Cleanup participants
         const stored = localStorage.getItem(LOCAL_STORAGE_KEY_PARTICIPANTS);
         let participants: PledgeParticipant[] = stored ? JSON.parse(stored) : [];
-        participants = participants.filter(p => p.pledgeId !== pledgeId);
+        participants = participants.filter((p: PledgeParticipant) => p.pledgeId !== pledgeId);
         localStorage.setItem(LOCAL_STORAGE_KEY_PARTICIPANTS, JSON.stringify(participants));
     },
 
     updatePledge: async (pledgeId: string, updates: Partial<Pledge>): Promise<Pledge> => {
-        const pledges = await mockService.getPledges();
-        const index = pledges.findIndex(p => p.id === pledgeId);
+        const pledges = _getMockPledges();
+        const index = pledges.findIndex((p: Pledge) => p.id === pledgeId);
         if (index === -1) throw new Error("Pledge not found");
 
         pledges[index] = { ...pledges[index], ...updates };
@@ -180,37 +157,6 @@ const mockService = {
 // --- REAL SERVICE (with Global Fallback) ---
 
 export const pledgeService = {
-    // Initialize standard pledges if they don't exist
-    seedInitialPledges: async () => {
-        return runWithFallback(
-            async () => {
-                const pledgesRef = collection(db, 'pledges');
-                const snapshot = await getDocs(pledgesRef);
-                if (snapshot.empty) {
-                    // Seeding is typically done by admin; safe to no-op here
-                }
-            },
-            async () => { /* no-op in offline mode */ },
-            "Seed Initial Pledges"
-        );
-    },
-
-    getPledges: async (limitCount: number = 50): Promise<Pledge[]> => {
-        return runWithFallback(
-            async () => {
-                const q = query(
-                    collection(db, 'pledges'),
-                    orderBy('participants', 'desc'),
-                    limit(limitCount)
-                );
-                const querySnapshot = await getDocs(q);
-                return querySnapshot.docs.map(d => ({ id: d.id, ...d.data() } as Pledge));
-            },
-            mockService.getPledges,
-            "Listing Pledges"
-        );
-    },
-
     createPledge: async (pledge: Omit<Pledge, 'id' | 'currentMalas' | 'participants'>, user: User): Promise<Pledge> => {
         if (!user?.uid) throw new Error("Requires authentication to create a pledge");
         return runWithFallback(
@@ -375,10 +321,51 @@ export const pledgeService = {
                 return snap.docs.map(d => ({ id: d.id, ...d.data() } as Pledge));
             },
             async () => {
-                const all = await mockService.getPledges();
-                return all.filter(p => p.communityId === communityId).slice(0, limitCount);
+                const all = _getMockPledges();
+                return all.filter((p: Pledge) => p.communityId === communityId).slice(0, limitCount);
             },
             "Get Community Pledges"
+        );
+    },
+
+    getPledgeById: async (pledgeId: string): Promise<Pledge | null> => {
+        return runWithFallback(
+            async () => {
+                const pledgeRef = doc(db, 'pledges', pledgeId);
+                const snap = await getDoc(pledgeRef);
+                if (!snap.exists()) return null;
+                return { id: snap.id, ...snap.data() } as Pledge;
+            },
+            async () => {
+                const pledges = _getMockPledges();
+                return pledges.find((p: Pledge) => p.id === pledgeId) || null;
+            },
+            "Get Pledge By ID"
+        );
+    },
+
+    // Guest-only contribute: increments pledge total without creating a participant doc.
+    // Requires anonymous Firebase Auth so that isAuthenticated() passes in security rules.
+    // Hard-capped at 25 malas per submission to prevent abuse.
+    guestContribute: async (pledgeId: string, malas: number): Promise<void> => {
+        const GUEST_MAX_MALAS = 25;
+        if (malas <= 0) return;
+        if (malas > GUEST_MAX_MALAS) throw new Error(`Guest contributions are limited to ${GUEST_MAX_MALAS} malas per submission.`);
+        return runWithFallback(
+            async () => {
+                const pledgeRef = doc(db, 'pledges', pledgeId);
+                await updateDoc(pledgeRef, { currentMalas: increment(malas) });
+                track.pledgeContributed(pledgeId, malas);
+            },
+            async () => {
+                const pledges = _getMockPledges();
+                const idx = pledges.findIndex((p: Pledge) => p.id === pledgeId);
+                if (idx !== -1) {
+                    pledges[idx].currentMalas += malas;
+                    localStorage.setItem(LOCAL_STORAGE_KEY_PLEDGES, JSON.stringify(pledges));
+                }
+            },
+            "Guest Contribute"
         );
     },
 

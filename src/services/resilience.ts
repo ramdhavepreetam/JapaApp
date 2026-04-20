@@ -7,12 +7,13 @@ export const shouldFallback = (error: any): boolean => {
         msg === "FIREBASE_TIMEOUT" ||
         msg.includes("offline") ||
         code === 'unavailable' ||
-        code === 'permission-denied' || // Often happens on auth weirdness/offline
+        // NOTE: permission-denied is intentionally excluded — it is a real rules/auth
+        // error that must surface to the user, not silently fall into offline mode.
         code === 'deadline-exceeded'
     );
 };
 
-export const withTimeout = <T>(promise: Promise<T>, ms: number = 5000): Promise<T> => {
+export const withTimeout = <T>(promise: Promise<T>, ms: number = 12000): Promise<T> => {
     return Promise.race([
         promise,
         new Promise<T>((_, reject) =>
@@ -50,7 +51,7 @@ export const runWithFallback = async <T>(
 
     try {
         // Try the primary function with a timeout
-        return await withTimeout(primaryFn(), 5000);
+        return await withTimeout(primaryFn());
     } catch (error: any) {
         if (shouldFallback(error)) {
             console.warn(`Backend failed (${contextString}) - Switching to Offline Mode:`, error);

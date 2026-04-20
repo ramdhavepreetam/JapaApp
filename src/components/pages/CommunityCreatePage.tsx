@@ -68,7 +68,7 @@ export const CommunityCreatePage: React.FC<CommunityCreatePageProps> = ({ onBack
         <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
             <AppBar position="sticky" color="default" elevation={0} sx={{ borderBottom: 1, borderColor: 'divider' }}>
                 <Toolbar>
-                    <IconButton edge="start" onClick={onBack} sx={{ mr: 2 }}>
+                    <IconButton onClick={onBack} sx={{ mr: 2 }}>
                         <ArrowLeft />
                     </IconButton>
                     <Typography variant="h6" sx={{ flexGrow: 1 }}>
@@ -79,7 +79,7 @@ export const CommunityCreatePage: React.FC<CommunityCreatePageProps> = ({ onBack
 
             <Container maxWidth="sm" sx={{ p: 3, flex: 1, overflowY: 'auto' }}>
                 <form onSubmit={handleSubmit}>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, width: '100%', overflowX: 'hidden' }}>
                         <TextField
                             label="Community Name"
                             required
@@ -99,7 +99,7 @@ export const CommunityCreatePage: React.FC<CommunityCreatePageProps> = ({ onBack
                             placeholder="What is this community about?"
                         />
 
-                        <Box sx={{ p: 2, bgcolor: 'background.paper', borderRadius: 2, border: 1, borderColor: 'divider' }}>
+                        <Box sx={{ p: 2, bgcolor: 'background.paper', borderRadius: 2, border: 1, borderColor: 'divider', width: '100%' }}>
                             <Typography variant="subtitle2" color="primary" gutterBottom>Privacy & Access</Typography>
 
                             <FormControlLabel
@@ -110,12 +110,14 @@ export const CommunityCreatePage: React.FC<CommunityCreatePageProps> = ({ onBack
                                     />
                                 }
                                 label={
-                                    <Box>
+                                    <Box sx={{ flex: 1, minWidth: 0 }}>
                                         <Typography variant="body2" fontWeight="bold">Private Community</Typography>
-                                        <Typography variant="caption" color="text.secondary">Hidden from discovery, requires invite link</Typography>
+                                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordWrap: 'break-word' }}>
+                                            Hidden from discovery, requires invite link
+                                        </Typography>
                                     </Box>
                                 }
-                                sx={{ mb: 2, alignItems: 'flex-start', ml: 0 }}
+                                sx={{ mb: 2, alignItems: 'flex-start', ml: -1, width: '100%' }}
                             />
 
                             <FormControlLabel
@@ -126,12 +128,14 @@ export const CommunityCreatePage: React.FC<CommunityCreatePageProps> = ({ onBack
                                     />
                                 }
                                 label={
-                                    <Box>
+                                    <Box sx={{ flex: 1, minWidth: 0 }}>
                                         <Typography variant="body2" fontWeight="bold">Require Approval</Typography>
-                                        <Typography variant="caption" color="text.secondary">Admins must approve new members</Typography>
+                                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordWrap: 'break-word' }}>
+                                            Admins must approve new members
+                                        </Typography>
                                     </Box>
                                 }
-                                sx={{ alignItems: 'flex-start', ml: 0 }}
+                                sx={{ alignItems: 'flex-start', ml: -1, width: '100%' }}
                             />
                         </Box>
 

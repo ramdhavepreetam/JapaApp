@@ -110,7 +110,7 @@ export const CommunityPledgesTab: React.FC<CommunityPledgesTabProps> = ({ commun
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
                         Start a collective spiritual cause for this community.
                     </Typography>
-                    {user && (
+                    {isAdmin && (
                         <Button variant="contained" startIcon={<Plus size={18} />} onClick={() => setShowForm(true)}>
                             Create Community Pledge
                         </Button>
@@ -139,7 +139,7 @@ export const CommunityPledgesTab: React.FC<CommunityPledgesTabProps> = ({ commun
             )}
 
             {/* FAB to create pledge */}
-            {user && (
+            {isAdmin && (
                 <Fab
                     color="primary"
                     onClick={() => setShowForm(true)}
@@ -157,6 +157,7 @@ export const CommunityPledgesTab: React.FC<CommunityPledgesTabProps> = ({ commun
                     onSubmit={handleCreate}
                     loading={creating}
                     serverError={createError}
+                    showPublicToggle={true}
                 />
             </Dialog>
         </Box>

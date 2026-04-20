@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Pledge } from '../types/pledge';
-import { DialogTitle, DialogContent, DialogActions, TextField, Button, Box } from '@mui/material';
+import { DialogTitle, DialogContent, DialogActions, TextField, Button, Box, FormControlLabel, Switch, Typography } from '@mui/material';
 
 interface PledgeFormProps {
     onClose: () => void;
@@ -9,13 +9,15 @@ interface PledgeFormProps {
     serverError?: string | null;
     initialData?: Pledge;
     isEditing?: boolean;
+    showPublicToggle?: boolean;
 }
 
-export const PledgeForm: React.FC<PledgeFormProps> = ({ onClose, onSubmit, loading, serverError, initialData, isEditing = false }) => {
+export const PledgeForm: React.FC<PledgeFormProps> = ({ onClose, onSubmit, loading, serverError, initialData, isEditing = false, showPublicToggle = false }) => {
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [targetMalas, setTargetMalas] = useState('1008');
     const [mantra, setMantra] = useState('');
+    const [isPublic, setIsPublic] = useState(false);
 
     useEffect(() => {
         if (initialData) {
@@ -23,6 +25,7 @@ export const PledgeForm: React.FC<PledgeFormProps> = ({ onClose, onSubmit, loadi
             setDescription(initialData.description);
             setTargetMalas(initialData.targetMalas.toString());
             setMantra(initialData.mantra || '');
+            setIsPublic(initialData.isPublic ?? false);
         }
     }, [initialData]);
 
@@ -51,7 +54,8 @@ export const PledgeForm: React.FC<PledgeFormProps> = ({ onClose, onSubmit, loadi
             title: title.trim(),
             description: description.trim(),
             targetMalas: target,
-            mantra: mantra.trim()
+            mantra: mantra.trim(),
+            ...(showPublicToggle && { isPublic })
         });
     };
 
@@ -109,6 +113,28 @@ export const PledgeForm: React.FC<PledgeFormProps> = ({ onClose, onSubmit, loadi
                         variant="outlined"
                         helperText="The specific mantra for this cause."
                     />
+
+                    {showPublicToggle && (
+                        <Box sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+                            <FormControlLabel
+                                control={
+                                    <Switch
+                                        checked={isPublic}
+                                        onChange={e => setIsPublic(e.target.checked)}
+                                        color="primary"
+                                    />
+                                }
+                                label={
+                                    <Box>
+                                        <Typography variant="body2" fontWeight={600}>Allow guest contributions via QR code</Typography>
+                                        <Typography variant="caption" color="text.secondary">
+                                            Anyone with the QR link can offer malas without signing in
+                                        </Typography>
+                                    </Box>
+                                }
+                            />
+                        </Box>
+                    )}
                 </Box>
             </DialogContent>
             <DialogActions sx={{ p: 3 }}>

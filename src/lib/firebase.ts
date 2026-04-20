@@ -2,6 +2,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
 import { getAnalytics } from 'firebase/analytics';
+// import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 
 
 // Your web app's Firebase configuration
@@ -31,12 +32,10 @@ export const db = initializeFirestore(app, {
     })
 });
 
-// App Check is intentionally NOT initialized at startup.
-// initializeAppCheck causes signInWithPopup to do an async token fetch before
-// opening the popup window, breaking the "user gesture" chain on mobile browsers
-// (Chrome Android, iOS Safari) → popup blocked. Enable App Check only after
-// Firebase Console enforcement is turned on AND the auth flow is migrated to
-// server-side tokens or a non-popup flow.
+// App Check is intentionally NOT initialized — reCAPTCHA iframe conflicts with
+// the Firebase auth iframe (signInWithRedirect), causing "message port closed"
+// errors on Safari and Chrome. Re-enable only after auth flow is fully migrated
+// to a popup-free approach or App Check is enforced and tested independently.
 export const appCheck = null;
 
 // Analytics (enabled only when measurementId is configured)

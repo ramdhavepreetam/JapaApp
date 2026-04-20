@@ -119,7 +119,26 @@
     "contribute": "Contribute",
     "contributeMalas": "How many malas did you complete?",
     "noPledgesYet": "No pledges yet. Start your first personal cause.",
-    "noJoinedPledges": "You haven't joined any community pledges yet."
+    "noJoinedPledges": "You haven't joined any community pledges yet.",
+    "publicBadge": "Public",
+    "makePublic": "Allow guest contributions via QR code",
+    "shareQR": "Share QR"
+  },
+  "guest": {
+    "title": "Contribute to This Cause",
+    "scanPrompt": "Scan QR code to offer malas to this collective cause",
+    "malasLabel": "Number of Malas",
+    "submit": "Offer Malas",
+    "submitting": "Offering...",
+    "thankYou": "Jai Sri Krishna! 🙏",
+    "thankYouMsg": "Your malas have been offered to this sacred cause.",
+    "offerMore": "Offer More",
+    "joinApp": "Join JapaApp to track your full spiritual journey",
+    "progress": "{{current}} of {{target}} malas",
+    "participants": "{{count}} devotees joined",
+    "notFound": "This pledge is no longer available.",
+    "loading": "Loading cause...",
+    "errorLoad": "Failed to load pledge. Please try again."
   },
   "report": {
     "title": "Your Journey",

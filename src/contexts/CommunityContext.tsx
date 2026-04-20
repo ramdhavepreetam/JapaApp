@@ -1,12 +1,11 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Pledge, PledgeParticipant } from '../types/pledge';
-import { pledgeService as communityService } from '../services/pledgeService';
+import { PledgeParticipant } from '../types/pledge';
+import { pledgeService } from '../services/pledgeService';
 import { useAuth } from './AuthContext';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
 interface CommunityContextType {
-    pledges: Pledge[];
     myPledges: PledgeParticipant[];
     loading: boolean;
     error: string | null;
@@ -17,31 +16,14 @@ const CommunityContext = createContext<CommunityContextType | undefined>(undefin
 
 export const CommunityProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { user } = useAuth();
-    const [pledges, setPledges] = useState<Pledge[]>([]);
     const [myPledges, setMyPledges] = useState<PledgeParticipant[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // Initial Load & Real-time Listeners
     useEffect(() => {
         setLoading(true);
 
-        // 1. Listen to All Pledges (Global)
-        const pledgesQuery = query(collection(db, 'pledges'));
-        const unsubPledges = onSnapshot(pledgesQuery, (snapshot) => {
-            const updatedPledges = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            } as Pledge));
-            setPledges(updatedPledges);
-            setLoading(false);
-        }, (err) => {
-            console.error("Error fetching pledges:", err);
-            setError("Failed to load community pledges.");
-            setLoading(false);
-        });
-
-        // 2. Listen to My Pledges (User Specific)
+        // Listen to My Pledges (User Specific — community pledges the user has joined)
         let unsubMyPledges: () => void;
         if (user) {
             const myPledgesQuery = query(
@@ -51,15 +33,18 @@ export const CommunityProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             unsubMyPledges = onSnapshot(myPledgesQuery, (snapshot) => {
                 const updatedMyPledges = snapshot.docs.map(doc => doc.data() as PledgeParticipant);
                 setMyPledges(updatedMyPledges);
+                setLoading(false);
             }, (err) => {
                 console.error("Error fetching my pledges:", err);
+                setError("Failed to load pledges.");
+                setLoading(false);
             });
         } else {
             setMyPledges([]);
+            setLoading(false);
         }
 
         return () => {
-            unsubPledges();
             if (unsubMyPledges) unsubMyPledges();
         };
     }, [user]);
@@ -67,22 +52,19 @@ export const CommunityProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const refresh = async () => {
         try {
             setLoading(true);
-            const [allPledges, userPledges] = await Promise.all([
-                communityService.getPledges(),
-                user ? communityService.getMyPledges(user.uid) : Promise.resolve([])
-            ]);
-            setPledges(allPledges);
+            const userPledges = user
+                ? await pledgeService.getMyPledges(user.uid)
+                : [];
             setMyPledges(userPledges);
         } catch (err) {
             console.error("Refresh failed", err);
-            // Don't set global error here to avoid blocking UI if just a refresh fails
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <CommunityContext.Provider value={{ pledges, myPledges, loading, error, refresh }}>
+        <CommunityContext.Provider value={{ myPledges, loading, error, refresh }}>
             {children}
         </CommunityContext.Provider>
     );

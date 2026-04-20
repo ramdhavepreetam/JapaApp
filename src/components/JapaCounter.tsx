@@ -184,14 +184,39 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
         }
     };
 
-    const triggerHaptic = (duration: number = 15) => {
+    const triggerHaptic = (pattern: number | number[] = 15) => {
         if (navigator.vibrate) {
-            navigator.vibrate(duration);
+            navigator.vibrate(pattern);
             return;
         }
+        // iOS Fallback Implementation:
+        // iOS Safari doesn't support the Vibrate API. The app uses a hack 
+        // to toggle an input switch which triggers a native haptic POP. 
+        // To simulate a "long vibration", we trigger multiple POPs rapidly.
         try {
             const label = document.getElementById('ios-haptic-label');
-            if (label) label.click();
+            if (label) {
+                if (Array.isArray(pattern)) {
+                    let cumulativeDelay = 0;
+                    for (let i = 0; i < pattern.length; i++) {
+                        const duration = pattern[i];
+                        if (i % 2 === 0) { // Vibration phase
+                            const pops = Math.ceil(duration / 60);
+                            for (let j = 0; j < pops; j++) {
+                                setTimeout(() => label.click(), cumulativeDelay + (j * 60));
+                            }
+                        }
+                        cumulativeDelay += duration;
+                    }
+                } else if (pattern > 50) {
+                    const pops = Math.ceil(pattern / 60);
+                    for (let j = 0; j < pops; j++) {
+                        setTimeout(() => label.click(), j * 60);
+                    }
+                } else {
+                    label.click();
+                }
+            }
         } catch (e) { }
     };
 
@@ -241,7 +266,8 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
         setData({ ...result.newData });
 
         if (result.malaCompleted) {
-            triggerHaptic(400);
+            // Long, distinct vibration pattern: two 500ms strong buzzes so you can't miss it
+            triggerHaptic([500, 200, 500]);
 
             const msg = mode === 'community' ? t('counter.malaOffered')
                 : (mode === 'pledge' || mode === 'personal-pledge') ? t('counter.contributionSent')

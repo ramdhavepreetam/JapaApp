@@ -5,7 +5,7 @@ import { Box, Typography, Avatar, Paper, IconButton, Button, CircularProgress } 
 import { Settings, LogOut, Award, Flame, History } from 'lucide-react';
 import { useTheme } from '@mui/material/styles';
 import { useAuth } from '../contexts/AuthContext';
-import { pledgeService as communityService } from '../services/pledgeService';
+import { pledgeService } from '../services/pledgeService';
 import { Pledge } from '../types/pledge';
 import { userService, UserProfile } from '../services/userService';
 import { doc, onSnapshot } from 'firebase/firestore';
@@ -22,7 +22,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSelectPledge, onNavi
     const { t } = useTranslation();
     const theme = useTheme();
     const { user, logout, signInWithGoogle } = useAuth();
-    const { myPledges, pledges, loading: loadingPledges, refresh } = useCommunity(); // Consume global cache
+    const { myPledges, loading: loadingPledges, refresh } = useCommunity();
 
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [loading, setLoading] = useState(false);
@@ -181,29 +181,22 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSelectPledge, onNavi
                         </Box>
                     ) : myPledges.length > 0 ? (
                         myPledges.map(mp => {
-                            // Find global pledge data for shared stats (participants)
-                            // We use the global 'pledges' list from context
-                            const globalPledge = pledges.find(p => p.id === mp.pledgeId);
-
-                            // Construct display object for Card
-                            // distinct: currentMalas is GLOBAL now (consistent with interface), myContribution passed separately
+                            // Build a display pledge from participant doc (title + target always available)
                             const displayPledge: Pledge = {
                                 id: mp.pledgeId,
                                 title: mp.pledgeTitle,
-                                description: globalPledge?.description || '',
+                                description: '',
                                 targetMalas: mp.pledgeTarget,
-                                currentMalas: globalPledge?.currentMalas || 0, // Global count
-                                participants: globalPledge?.participants || 0,
-                                mantra: globalPledge?.mantra
+                                currentMalas: mp.contributedMalas,
+                                participants: 0
                             };
 
                             const handleLeave = async (pledge: Pledge) => {
                                 if (!user) return;
-                                // Confirm is already handled in PledgeCard
                                 try {
                                     setLoading(true);
-                                    await communityService.leavePledge(pledge.id, user.uid);
-                                    await refresh(); // Force refresh to update UI immediately
+                                    await pledgeService.leavePledge(pledge.id, user.uid);
+                                    await refresh();
                                     setLoading(false);
                                 } catch (e) {
                                     console.error(e);
@@ -218,7 +211,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSelectPledge, onNavi
                                     isJoined={true}
                                     onJoin={() => onSelectPledge(displayPledge)}
                                     onLeave={() => handleLeave(displayPledge)}
-                                    myContribution={mp.contributedMalas} // Explicit personal stats
+                                    myContribution={mp.contributedMalas}
                                 />
                             );
                         })

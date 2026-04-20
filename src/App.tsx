@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'framer-motion';
 import { JapaCounter } from './components/JapaCounter';
 import { ReportView } from './components/ReportView';
 import { PledgesView } from './components/PledgesView';
 import { ProfileView } from './components/ProfileView';
+import { GuestJapaView } from './components/GuestJapaView';
 import { CommunityListPage } from './components/pages/CommunityListPage';
 import { CommunityCreatePage } from './components/pages/CommunityCreatePage';
 import { CommunityHomePage } from './components/pages/CommunityHomePage';
@@ -24,6 +25,12 @@ function App() {
     // Auth
     const { authUser } = useAuth();
     const { t, i18n } = useTranslation();
+
+    // Guest QR pledge landing — detect ?pledge=ID on mount (never changes during session)
+    const guestPledgeId = useMemo(() => {
+        const params = new URLSearchParams(window.location.search);
+        return params.get('pledge');
+    }, []);
 
     // Apply lang attribute to <html> for CSS :lang() selector
     useEffect(() => {
@@ -80,6 +87,11 @@ function App() {
         return 'counter';
     };
 
+    // Render lightweight guest view when user arrived via a pledge QR code
+    if (guestPledgeId) {
+        return <GuestJapaView pledgeId={guestPledgeId} />;
+    }
+
     return (
         <CommunityProvider>
             <Box sx={{
@@ -130,7 +142,7 @@ function App() {
                                 initial={{ x: 300, opacity: 0 }}
                                 animate={{ x: 0, opacity: 1 }}
                                 exit={{ x: 300, opacity: 0 }}
-                                style={{ width: '100%', height: '100%', position: 'absolute', top: 0, zIndex: 60, backgroundColor: 'white' }}
+                                style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 60, backgroundColor: 'white' }}
                             >
                                 <ReportView onBack={handleBack} />
                             </motion.div>
@@ -172,7 +184,7 @@ function App() {
                                 animate={{ x: 0 }}
                                 exit={{ x: '100%' }}
                                 transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                                style={{ width: '100%', height: '100%', position: 'absolute', top: 0, zIndex: 10, backgroundColor: 'white' }}
+                                style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 10, backgroundColor: 'white' }}
                             >
                                 <CommunityCreatePage
                                     onBack={() => setView('communities')}
@@ -187,7 +199,7 @@ function App() {
                                 initial={{ x: '100%' }}
                                 animate={{ x: 0 }}
                                 exit={{ x: '100%' }}
-                                style={{ width: '100%', height: '100%', position: 'absolute', top: 0, zIndex: 10, backgroundColor: 'white' }}
+                                style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 10, backgroundColor: 'white' }}
                             >
                                 <CommunityHomePage
                                     communityId={activeCommunityId}
@@ -202,7 +214,7 @@ function App() {
                                 initial={{ y: -20, opacity: 0 }}
                                 animate={{ y: 0, opacity: 1 }}
                                 exit={{ y: -20, opacity: 0 }}
-                                style={{ width: '100%', height: '100%', position: 'absolute', top: 0, zIndex: 60, backgroundColor: 'white' }}
+                                style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 60, backgroundColor: 'white' }}
                             >
                                 <NotificationsPage
                                     onBack={() => setView('counter')}
@@ -233,7 +245,7 @@ function App() {
                                 animate={{ y: 0 }}
                                 exit={{ y: '100%' }}
                                 transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                                style={{ width: '100%', height: '100%', position: 'absolute', top: 0, zIndex: 100, backgroundColor: 'white' }}
+                                style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, backgroundColor: 'white' }}
                             >
                                 <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>{t('nav.admin')}...</Box>}>
                                     <AdminPanel onBack={() => setView('profile')} />

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import {
     User, GoogleAuthProvider,
     signInWithPopup,
@@ -7,7 +7,7 @@ import {
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import { AuthUser } from '../types/auth';
-import { userService } from '../services/userService';
+
 
 interface AuthContextType {
     user: User | null;
@@ -24,7 +24,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [user, setUser] = useState<User | null>(null);
     const [authUser, setAuthUser] = useState<AuthUser | null>(null);
     const [loading, setLoading] = useState(true);
-    const signingIn = useRef(false);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -72,22 +71,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, []);
 
     const signInWithGoogle = async () => {
-        if (signingIn.current) return;
-        signingIn.current = true;
-
         const provider = new GoogleAuthProvider();
         try {
-            const { user } = await signInWithPopup(auth, provider);
-            // Fire-and-forget: update lastLoginAt. Non-critical — error is swallowed inside updateLastLogin.
-            userService.updateLastLogin(user.uid);
+            await signInWithPopup(auth, provider);
         } catch (error: any) {
-            const silent = ['auth/cancelled-popup-request', 'auth/popup-closed-by-user'];
-            if (!silent.includes(error?.code)) {
-                console.error('Error signing in with Google', error);
-                alert('Login Failed: ' + (error.message || error));
-            }
-        } finally {
-            signingIn.current = false;
+            console.error('Error with Google sign-in', error);
+            alert('Login Failed: ' + (error.message || error));
         }
     };
 
