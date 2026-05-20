@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Volume2, VolumeX, RotateCcw, Sparkles, Target, Users, Play, RotateCw, WifiOff, Wifi } from 'lucide-react';
 import { storage, StorageSchema, PendingSyncItem, getTodayDate } from '../lib/storage';
-import { triggerHaptic } from '../lib/haptics';
+import { isIOSLike, triggerHaptic } from '../lib/haptics';
 import { BeadRing } from './BeadRing';
 import { Pledge, PersonalPledge } from '../types/pledge';
 import { Box, IconButton, Button, Typography, Chip, useTheme, Zoom, LinearProgress } from '@mui/material';
@@ -29,6 +29,8 @@ interface JapaCounterProps {
     onSaved?: (malas: number, mantras: number) => void;
     mantra?: string;
 }
+
+const iosSwitchAttribute = { switch: '' } as unknown as React.InputHTMLAttributes<HTMLInputElement>;
 
 export const JapaCounter: React.FC<JapaCounterProps> = ({
     activePledge,
@@ -68,6 +70,7 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
         return saved ? parseInt(saved, 10) : 24;
     });
     const theme = useTheme();
+    const useIOSNativeHapticTapTarget = isIOSLike();
 
     const handleFontSizeChange = (e: React.MouseEvent, change: number) => {
         e.stopPropagation();
@@ -217,14 +220,16 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
         syncService.syncAll();
     };
 
-    const handleTap = async () => {
+    const handleTap = async ({ hapticHandled = false }: { hapticHandled?: boolean } = {}) => {
         // Guard: don't count if session not started
         if (!data.session.active) {
             setFeedback(t('counter.startPrompt'));
             setTimeout(() => setFeedback(null), 2000);
             return;
         }
-        triggerHaptic(15);
+        if (!hapticHandled) {
+            triggerHaptic(15);
+        }
         playClickSound();
 
         const result = storage.increment();
@@ -232,7 +237,9 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
 
         if (result.malaCompleted) {
             // Long, distinct vibration pattern: two 500ms strong buzzes so you can't miss it
-            triggerHaptic([500, 200, 500]);
+            if (!hapticHandled) {
+                triggerHaptic([500, 200, 500]);
+            }
 
             const msg = mode === 'community' ? t('counter.malaOffered')
                 : (mode === 'pledge' || mode === 'guest-pledge' || mode === 'personal-pledge') ? t('counter.contributionSent')
@@ -293,6 +300,11 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
     };
     const handleStartSession = () => { setData({ ...storage.startSession() }); setFeedback(t('counter.startSession')); setTimeout(() => setFeedback(null), 2000); };
 
+    const handleIOSNativeHapticTap = (e: React.MouseEvent<HTMLInputElement>) => {
+        e.stopPropagation();
+        handleTap({ hapticHandled: true });
+    };
+
     const handleResetSession = async () => {
         if (!data.session.active && data.session.counts === 0) return;
         if (!confirm("Reset this session? Your session progress will be saved.")) return;
@@ -349,7 +361,7 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
                     : 'transparent',
                 transition: 'background 0.3s ease',
             }}
-            onClick={handleTap}
+            onClick={() => { handleTap(); }}
         >
             {/* Mantra Audio Player Bar */}
             {!effectiveFocusMode && (
@@ -408,6 +420,27 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
 
             {/* Main Center Content */}
             <Box sx={{ flex: 1, minHeight: 340, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', p: 2 }}>
+                {useIOSNativeHapticTapTarget && (
+                    <input
+                        {...iosSwitchAttribute}
+                        type="checkbox"
+                        aria-label="Count mantra"
+                        disabled={!data.session.active}
+                        tabIndex={-1}
+                        onClick={handleIOSNativeHapticTap}
+                        style={{
+                            position: 'absolute',
+                            inset: 0,
+                            width: '100%',
+                            height: '100%',
+                            margin: 0,
+                            border: 0,
+                            opacity: 0.001,
+                            zIndex: 2,
+                            cursor: data.session.active ? 'pointer' : 'default',
+                        }}
+                    />
+                )}
 
                 {!effectiveFocusMode && (
                     <Box sx={{ position: 'absolute', top: 88, left: 16, display: 'flex', gap: 1, zIndex: 6 }}>
@@ -513,7 +546,7 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
 
                         {/* Font Size Controls */}
                         {!effectiveFocusMode && (
-                            <Box sx={{ display: 'flex', gap: 1, mt: 1, opacity: 0.5, '&:hover': { opacity: 1 }, transition: 'opacity 0.2s' }}>
+                            <Box sx={{ position: 'relative', zIndex: 3, display: 'flex', gap: 1, mt: 1, opacity: 0.5, '&:hover': { opacity: 1 }, transition: 'opacity 0.2s' }}>
                                 <Button
                                     size="small"
                                     onClick={(e) => handleFontSizeChange(e, -2)}
@@ -639,14 +672,40 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
                             </Button>
                         )}
 
-                        <Button
-                            variant="contained" color="secondary"
-                            onClick={(e) => { e.stopPropagation(); handleTap(); }}
-                            disabled={!data.session.active}
-                            sx={{ borderRadius: 8, px: 4 }}
-                        >
-                            {t('counter.addChant')}
-                        </Button>
+                        <Box sx={{ position: 'relative', display: 'inline-flex' }}>
+                            <Button
+                                variant="contained" color="secondary"
+                                onClick={(e) => { e.stopPropagation(); handleTap(); }}
+                                disabled={!data.session.active}
+                                sx={{
+                                    borderRadius: 8,
+                                    px: 4,
+                                    ...(useIOSNativeHapticTapTarget && data.session.active ? { pointerEvents: 'none' } : {}),
+                                }}
+                            >
+                                {t('counter.addChant')}
+                            </Button>
+                            {useIOSNativeHapticTapTarget && (
+                                <input
+                                    {...iosSwitchAttribute}
+                                    type="checkbox"
+                                    aria-label={t('counter.addChant')}
+                                    disabled={!data.session.active}
+                                    tabIndex={-1}
+                                    onClick={handleIOSNativeHapticTap}
+                                    style={{
+                                        position: 'absolute',
+                                        inset: 0,
+                                        width: '100%',
+                                        height: '100%',
+                                        margin: 0,
+                                        border: 0,
+                                        opacity: 0.001,
+                                        cursor: data.session.active ? 'pointer' : 'default',
+                                    }}
+                                />
+                            )}
+                        </Box>
 
                         <Typography variant="body2" color="text.secondary" sx={{ opacity: 0.7, fontStyle: 'italic' }}>
                             {data.session.active ? t('counter.sessionTotal', { malas: data.session.malas }) : t('counter.startPrompt')}

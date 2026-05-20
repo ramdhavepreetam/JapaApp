@@ -56,7 +56,7 @@ describe('haptics', () => {
         expect(document.getElementById('japa-ios-haptic-switch')).toBeNull();
     });
 
-    it('creates and toggles a Safari switch control on iOS', () => {
+    it('does not create synthetic switch controls on iOS', () => {
         setNavigatorOverrides({
             userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 26_5 like Mac OS X)',
             platform: 'iPhone',
@@ -65,26 +65,20 @@ describe('haptics', () => {
         });
 
         expect(isIOSLike()).toBe(true);
-        expect(triggerHaptic(15)).toBe(true);
-
-        const input = document.getElementById('japa-ios-haptic-switch');
-        expect(input).toBeInstanceOf(HTMLInputElement);
-        expect(input).toHaveAttribute('switch');
-        expect((input as HTMLInputElement).checked).toBe(true);
+        expect(triggerHaptic(15)).toBe(false);
+        expect(document.querySelector('input[switch]')).toBeNull();
     });
 
-    it('reuses the same iOS switch trigger between taps', () => {
+    it('still uses native vibrate if an iOS browser exposes it', () => {
+        const vibrate = vi.fn(() => true);
         setNavigatorOverrides({
             userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 26_5 like Mac OS X)',
             platform: 'iPhone',
             maxTouchPoints: 5,
-            vibrate: undefined,
+            vibrate,
         });
 
         expect(triggerHaptic(15)).toBe(true);
-        expect(triggerHaptic(15)).toBe(true);
-
-        expect(document.querySelectorAll('#japa-ios-haptic-container')).toHaveLength(1);
-        expect(document.querySelectorAll('#japa-ios-haptic-switch')).toHaveLength(1);
+        expect(vibrate).toHaveBeenCalledWith(15);
     });
 });
