@@ -184,13 +184,21 @@ service cloud.firestore {
       // --- Japa Entries Subcollection ---
       match /japa_entries/{entryId} {
         allow read: if isCommunityMember(communityId);
-        
+
         // Create: Immutable
-        allow create: if isCommunityMember(communityId) && 
+        allow create: if isCommunityMember(communityId) &&
                       request.resource.data.uid == request.auth.uid;
-                      
+
         // Immutable
         allow update, delete: if false;
+      }
+
+      // --- Japa Entry Reactions Subcollection ---
+      // Stored separately because japa_entries are write-once/immutable.
+      // Each doc keyed by entryId holds per-reaction counts + reactors map.
+      match /japa_entry_reactions/{entryId} {
+        allow read: if isCommunityMember(communityId);
+        allow create, update: if isCommunityMember(communityId);
       }
     }
 
@@ -278,6 +286,13 @@ service cloud.firestore {
     match /global_stats/{docId} {
         allow read: if isAuthenticated();
         allow write: if false; // Written only by Cloud Functions via Admin SDK
+    }
+
+    // --- App Feedback ---
+    // Any signed-in user can submit; only app admins can read or update (triage).
+    match /app_feedback/{feedbackId} {
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.uid;
+      allow read, update: if isAppAdmin();
     }
 
     // --- Mantra Library (curated audio player content) ---

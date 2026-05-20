@@ -1,12 +1,15 @@
 {
-  "name": "JapaApp — Mala Counter",
-  "short_name": "JapaApp",
-  "description": "Digital mala counter for japa meditation and community chanting",
+  "name": "DoJapa — Digital Mala & Mantra Counter",
+  "short_name": "DoJapa",
+  "description": "Count 108-bead japa rounds, track streaks, and chant Hare Krishna, Gayatri, Om Namah Shivaya & more. Free digital mala for all devotees.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#FFF8F0",
-  "theme_color": "#EA580C",
+  "theme_color": "#FF9933",
+  "lang": "en",
+  "categories": ["lifestyle", "health", "religion"],
   "icons": [
     {
       "src": "/favicon.svg",
@@ -15,5 +18,30 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": ["lifestyle", "health", "religion"]
+  "shortcuts": [
+    {
+      "name": "Start Japa",
+      "short_name": "Chant",
+      "description": "Open the mala counter and begin your japa session",
+      "url": "/?action=start-japa"
+    },
+    {
+      "name": "My Progress",
+      "short_name": "Progress",
+      "description": "View your japa streaks and lifetime rounds",
+      "url": "/progress"
+    }
+  ],
+  "related_applications": [
+    {
+      "platform": "play",
+      "url": "https://play.google.com/store/apps/details?id=com.dojapa.app",
+      "id": "com.dojapa.app"
+    },
+    {
+      "platform": "itunes",
+      "url": "https://apps.apple.com/app/dojapa/id0000000000"
+    }
+  ],
+  "prefer_related_applications": false
 }

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Volume2, VolumeX, RotateCcw, Sparkles, Target, Users, Play, RotateCw, WifiOff, Wifi } from 'lucide-react';
 import { storage, StorageSchema, PendingSyncItem, getTodayDate } from '../lib/storage';
+import { triggerHaptic } from '../lib/haptics';
 import { BeadRing } from './BeadRing';
 import { Pledge, PersonalPledge } from '../types/pledge';
 import { Box, IconButton, Button, Typography, Chip, useTheme, Zoom, LinearProgress } from '@mui/material';
@@ -23,7 +24,7 @@ interface JapaCounterProps {
     onPersonalPledgeComplete?: (pledge: PersonalPledge) => void;
 
     // New Props
-    mode?: 'personal' | 'pledge' | 'community';
+    mode?: 'personal' | 'pledge' | 'community' | 'guest-pledge';
     contextId?: string; // pledgeId or communityId
     onSaved?: (malas: number, mantras: number) => void;
     mantra?: string;
@@ -184,42 +185,6 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
         }
     };
 
-    const triggerHaptic = (pattern: number | number[] = 15) => {
-        if (navigator.vibrate) {
-            navigator.vibrate(pattern);
-            return;
-        }
-        // iOS Fallback Implementation:
-        // iOS Safari doesn't support the Vibrate API. The app uses a hack 
-        // to toggle an input switch which triggers a native haptic POP. 
-        // To simulate a "long vibration", we trigger multiple POPs rapidly.
-        try {
-            const label = document.getElementById('ios-haptic-label');
-            if (label) {
-                if (Array.isArray(pattern)) {
-                    let cumulativeDelay = 0;
-                    for (let i = 0; i < pattern.length; i++) {
-                        const duration = pattern[i];
-                        if (i % 2 === 0) { // Vibration phase
-                            const pops = Math.ceil(duration / 60);
-                            for (let j = 0; j < pops; j++) {
-                                setTimeout(() => label.click(), cumulativeDelay + (j * 60));
-                            }
-                        }
-                        cumulativeDelay += duration;
-                    }
-                } else if (pattern > 50) {
-                    const pops = Math.ceil(pattern / 60);
-                    for (let j = 0; j < pops; j++) {
-                        setTimeout(() => label.click(), j * 60);
-                    }
-                } else {
-                    label.click();
-                }
-            }
-        } catch (e) { }
-    };
-
     const submitCommunityEntry = async (malas: number, mantras: number) => {
         if (!user || !contextId) return;
 
@@ -270,13 +235,19 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
             triggerHaptic([500, 200, 500]);
 
             const msg = mode === 'community' ? t('counter.malaOffered')
-                : (mode === 'pledge' || mode === 'personal-pledge') ? t('counter.contributionSent')
+                : (mode === 'pledge' || mode === 'guest-pledge' || mode === 'personal-pledge') ? t('counter.contributionSent')
                     : t('counter.malaCompleted');
 
             setFeedback(msg);
             setTimeout(() => setFeedback(null), 3000);
 
-            if (user) {
+            if (mode === 'guest-pledge' && contextId) {
+                import('../services/pledgeService').then(({ pledgeService }) => {
+                    pledgeService.guestContribute(contextId, 1)
+                        .then(() => onSaved?.(1, 108))
+                        .catch((err: unknown) => console.error('Guest pledge contribute failed', err));
+                });
+            } else if (user) {
                 // 1. Community Mode
                 if (mode === 'community' && contextId) {
                     await submitCommunityEntry(1, 108);
@@ -457,19 +428,26 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
                 )}
 
                 {/* Mode Specific Badges */}
-                {!effectiveFocusMode && mode === 'pledge' && activePledge && (
+                {!effectiveFocusMode && (mode === 'pledge' || mode === 'guest-pledge') && activePledge && (
                     <Box sx={{ position: 'absolute', top: 16, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, zIndex: 5 }}>
                         <Zoom in={true}>
                             <Chip
                                 icon={<Sparkles size={14} color={theme.palette.background.paper} />}
-                                label={`Contributing to: ${activePledge.title}`}
+                                label={`${mode === 'guest-pledge' ? 'Offering to' : 'Contributing to'}: ${activePledge.title}`}
                                 sx={{ bgcolor: 'primary.main', color: 'primary.contrastText', boxShadow: 3, fontWeight: 700 }}
                             />
                         </Zoom>
                         <Box sx={{ display: 'flex', gap: 2, bgcolor: 'rgba(255,255,255,0.9)', px: 2, py: 0.5, borderRadius: 4, boxShadow: 1 }}>
-                            <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontWeight: 600, color: 'primary.dark' }}>
-                                <Target size={14} /> My Total: {myContribution}
-                            </Typography>
+                            {mode === 'pledge' && (
+                                <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontWeight: 600, color: 'primary.dark' }}>
+                                    <Target size={14} /> My Total: {myContribution}
+                                </Typography>
+                            )}
+                            {mode === 'guest-pledge' && (
+                                <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontWeight: 600, color: 'primary.dark' }}>
+                                    <Target size={14} /> {activePledge.currentMalas} / {activePledge.targetMalas}
+                                </Typography>
+                            )}
                             <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary' }}>
                                 <Users size={14} /> {activePledge.participants} Joined
                             </Typography>
@@ -676,14 +654,6 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
                     </Box>
                 </Box>
             )}
-
-            {/* iOS Haptic Workaround */}
-            <div style={{ opacity: 0, position: 'absolute', pointerEvents: 'none' }} onClick={(e) => e.stopPropagation()}>
-                <input type="checkbox" id="ios-haptic-switch" style={{ display: 'none' }} />
-                {/* @ts-ignore */}
-                <input type="checkbox" switch="true" id="ios-haptic-switch-trigger" style={{ display: 'none' }} />
-                <label htmlFor="ios-haptic-switch-trigger" id="ios-haptic-label">Haptic</label>
-            </div>
         </Box>
     );
 };

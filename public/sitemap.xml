@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  sitemap.xml — dojapa.com
+  Submit to: Google Search Console → Sitemaps
+             Bing Webmaster Tools → Sitemaps
+  Regenerate this file whenever you add/remove pages.
+  On AWS: serve from S3 via CloudFront so it loads in <100ms globally.
+-->
+<urlset
+  xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+  xmlns:xhtml="http://www.w3.org/1999/xhtml"
+  xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"
+>
+
+  <!-- ===== CORE PAGES ===== -->
+
+  <url>
+    <loc>https://www.dojapa.com/</loc>
+    <lastmod>2025-01-01</lastmod>
+    <changefreq>weekly</changefreq>
+    <!-- Home page: highest priority — signals to Google this is the canonical root -->
+    <priority>1.0</priority>
+    <!-- hreflang alternates declared here for multilingual support -->
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.dojapa.com/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://www.dojapa.com/hi/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.dojapa.com/"/>
+  </url>
+
+  <url>
+    <loc>https://www.dojapa.com/about</loc>
+    <lastmod>2025-01-01</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <url>
+    <loc>https://www.dojapa.com/download</loc>
+    <lastmod>2025-01-01</lastmod>
+    <changefreq>monthly</changefreq>
+    <!-- Download page converts visitors — keep priority high -->
+    <priority>0.9</priority>
+  </url>
+
+  <url>
+    <loc>https://www.dojapa.com/contact</loc>
+    <lastmod>2025-01-01</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.4</priority>
+  </url>
+
+  <url>
+    <loc>https://www.dojapa.com/privacy</loc>
+    <lastmod>2025-01-01</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+
+  <!-- ===== MANTRA HUB ===== -->
+
+  <url>
+    <loc>https://www.dojapa.com/mantras</loc>
+    <lastmod>2025-01-01</lastmod>
+    <changefreq>weekly</changefreq>
+    <!-- Mantra listing page — second most important after home -->
+    <priority>0.95</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.dojapa.com/mantras"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://www.dojapa.com/hi/mantras"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.dojapa.com/mantras"/>
+  </url>
+
+  <!-- Individual mantra pages: 0.9 priority — these target high-intent keyword clusters -->
+
+  <url>
+    <loc>https://www.dojapa.com/mantras/hare-krishna</loc>
+    <lastmod>2025-01-01</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.dojapa.com/mantras/hare-krishna"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://www.dojapa.com/hi/mantras/hare-krishna"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.dojapa.com/mantras/hare-krishna"/>
+    <image:image>
+      <image:loc>https://www.dojapa.com/images/mantras/hare-krishna-og.jpg</image:loc>
+      <image:title>Hare Krishna Maha Mantra — DoJapa Digital Mala</image:title>
+    </image:image>
+  </url>
+
+  <url>
+    <loc>https://www.dojapa.com/mantras/om-namah-shivaya</loc>
+    <lastmod>2025-01-01</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.dojapa.com/mantras/om-namah-shivaya"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://www.dojapa.com/hi/mantras/om-namah-shivaya"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.dojapa.com/mantras/om-namah-shivaya"/>
+  </url>
+
+  <url>
+    <loc>https://www.dojapa.com/mantras/gayatri</loc>
+    <lastmod>2025-01-01</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.dojapa.com/mantras/gayatri"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://www.dojapa.com/hi/mantras/gayatri"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.dojapa.com/mantras/gayatri"/>
+  </url>
+
+  <url>
+    <loc>https://www.dojapa.com/mantras/ram-naam</loc>
+    <lastmod>2025-01-01</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.dojapa.com/mantras/ram-naam"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://www.dojapa.com/hi/mantras/ram-naam"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.dojapa.com/mantras/ram-naam"/>
+  </url>
+
+  <url>
+    <loc>https://www.dojapa.com/mantras/om-mani-padme-hum</loc>
+    <lastmod>2025-01-01</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.dojapa.com/mantras/om-mani-padme-hum"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.dojapa.com/mantras/om-mani-padme-hum"/>
+  </url>
+
+  <!-- ===== BLOG ===== -->
+
+  <url>
+    <loc>https://www.dojapa.com/blog</loc>
+    <lastmod>2025-01-01</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Individual blog posts added here as they are published -->
+  <!-- Example:
+  <url>
+    <loc>https://www.dojapa.com/blog/how-to-do-japa-daily</loc>
+    <lastmod>2025-02-01</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.75</priority>
+  </url>
+  -->
+
+</urlset>

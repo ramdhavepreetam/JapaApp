@@ -140,6 +140,27 @@
     "loading": "Loading cause...",
     "errorLoad": "Failed to load pledge. Please try again."
   },
+  "feedback": {
+    "sendFeedback": "Send Feedback",
+    "title": "Send Feedback",
+    "subtitle": "Help us improve your spiritual journey",
+    "category": "Category",
+    "categoryBug": "Bug Report",
+    "categoryFeature": "Feature Request",
+    "categoryGeneral": "General Feedback",
+    "messagePlaceholder": "Share your thoughts...",
+    "submit": "Submit",
+    "submitting": "Sending...",
+    "success": "Thank you for your feedback!",
+    "error": "Failed to send feedback. Please try again."
+  },
+  "reactions": {
+    "recentSessions": "Recent Sessions",
+    "pranams": "Pranams",
+    "heart": "Heart",
+    "blessings": "Blessings",
+    "noSessions": "No recent chants. Be the first!"
+  },
   "report": {
     "title": "Your Journey",
     "individual": "Individual",

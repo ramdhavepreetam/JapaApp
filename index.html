@@ -1,38 +1,223 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" prefix="og: https://ogp.me/ns#">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 
-    <title>JapaApp — Mala Counter</title>
-    <meta name="description" content="Digital mala counter for japa meditation. Track your chanting, join community pledges, and build a daily spiritual practice." />
+    <!-- viewport: no user-scalable=no — harms a11y and flagged by Lighthouse -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <!-- Theme -->
-    <meta name="theme-color" content="#EA580C" />
+    <!-- ===== PRIMARY SEO ===== -->
+    <title>DoJapa — Digital Mala &amp; Mantra Japa Counter | Daily Sadhana Tracker</title>
+    <meta name="description" content="DoJapa is your free digital mala app. Count 108-bead japa rounds, track streaks, and chant Hare Krishna, Gayatri, Om Namah Shivaya &amp; more. Start your sadhana today." />
+    <meta name="keywords" content="japa app, digital mala, mantra counter app, online japa counter, 108 beads counter, Hare Krishna japa app, Gayatri mantra app, Om Namah Shivaya counter, chanting app, bhakti app, mantra meditation app, nama japa, daily sadhana tracker" />
+    <meta name="author" content="DoJapa" />
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+
+    <!-- Canonical — prevents duplicate-content issues from query strings -->
+    <link rel="canonical" href="https://www.dojapa.com/" />
+
+    <!-- hreflang — tells Google which language variant to serve -->
+    <link rel="alternate" hreflang="en" href="https://www.dojapa.com/" />
+    <link rel="alternate" hreflang="hi" href="https://www.dojapa.com/hi/" />
+    <link rel="alternate" hreflang="x-default" href="https://www.dojapa.com/" />
+
+    <!-- ===== PWA / MOBILE ===== -->
+    <meta name="theme-color" content="#FF9933" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="JapaApp" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="DoJapa" />
+    <link rel="manifest" href="/manifest.json" />
 
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/favicon.svg" />
 
-    <!-- PWA Manifest -->
-    <link rel="manifest" href="/manifest.json" />
-
-    <!-- Open Graph -->
+    <!-- ===== OPEN GRAPH ===== -->
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="JapaApp — Mala Counter" />
-    <meta property="og:description" content="Digital mala counter for japa meditation. Track your chanting, join community pledges, and build a daily spiritual practice." />
-    <meta property="og:image" content="/favicon.svg" />
+    <meta property="og:site_name" content="DoJapa" />
+    <meta property="og:title" content="DoJapa — Digital Mala &amp; Mantra Japa Counter" />
+    <meta property="og:description" content="Count 108-bead japa rounds on your phone. Track daily streaks, choose your mantra, and deepen your bhakti sadhana. Free for all devotees." />
+    <meta property="og:url" content="https://www.dojapa.com/" />
+    <meta property="og:image" content="https://www.dojapa.com/og-home.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="DoJapa digital mala — count your mantra rounds on any device" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:locale:alternate" content="hi_IN" />
 
-    <!-- Twitter Card -->
-    <meta name="twitter:card" content="summary" />
-    <meta name="twitter:title" content="JapaApp — Mala Counter" />
-    <meta name="twitter:description" content="Digital mala counter for japa meditation and community chanting." />
+    <!-- ===== TWITTER CARD ===== -->
+    <!-- summary_large_image gives the big card format in feeds -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@DoJapaApp" />
+    <meta name="twitter:title" content="DoJapa — Digital Mala &amp; Mantra Japa Counter" />
+    <meta name="twitter:description" content="Free digital mala app. Count japa rounds, track streaks, chant Hare Krishna, Gayatri &amp; more. Your sadhana companion." />
+    <meta name="twitter:image" content="https://www.dojapa.com/og-home.jpg" />
+    <meta name="twitter:image:alt" content="DoJapa digital mala counter" />
+
+    <!-- ===== STRUCTURED DATA (JSON-LD) ===== -->
+
+    <!-- Organization — brand identity and E-E-A-T signal -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "DoJapa",
+      "url": "https://www.dojapa.com",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://www.dojapa.com/favicon.svg"
+      },
+      "description": "DoJapa is a digital japa app for devotees worldwide. Count mantra rounds with a 108-bead digital mala, track sadhana streaks, and chant sacred mantras from any tradition.",
+      "sameAs": [
+        "https://twitter.com/DoJapaApp",
+        "https://www.instagram.com/dojapa",
+        "https://www.youtube.com/@dojapa"
+      ]
+    }
+    </script>
+
+    <!-- WebSite + SearchAction — enables Google Sitelinks Search Box -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "DoJapa",
+      "url": "https://www.dojapa.com",
+      "description": "Digital mala and mantra japa counter for daily sadhana",
+      "inLanguage": ["en", "hi"],
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://www.dojapa.com/mantras?q={search_term_string}"
+        },
+        "query-input": "required name=search_term_string"
+      }
+    }
+    </script>
+
+    <!-- MobileApplication — powers app rich cards in Google Search -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "MobileApplication",
+      "name": "DoJapa — Digital Mala & Japa Counter",
+      "operatingSystem": ["ANDROID", "IOS", "WEB"],
+      "applicationCategory": "LifestyleApplication",
+      "applicationSubCategory": "Spiritual & Meditation",
+      "description": "A digital mala counter and mantra japa tracker for devotees. Count 108-bead rounds, choose from Hare Krishna, Gayatri, Om Namah Shivaya, Ram Naam, Om Mani Padme Hum, and more.",
+      "url": "https://www.dojapa.com",
+      "downloadUrl": "https://www.dojapa.com/download",
+      "featureList": [
+        "108-bead digital mala counter",
+        "Hare Krishna Maha Mantra",
+        "Om Namah Shivaya",
+        "Gayatri Mantra",
+        "Ram Naam",
+        "Om Mani Padme Hum",
+        "Custom mantra support",
+        "Daily round tracking and streaks",
+        "Guided chanting audio",
+        "Sadhana journal"
+      ],
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "author": {
+        "@type": "Organization",
+        "name": "DoJapa"
+      }
+    }
+    </script>
+
+    <!-- FAQPage — renders expandable FAQ rich results in Google SERP -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is japa meditation?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Japa (Sanskrit: जप) is the meditative repetition of a divine name or mantra. Practiced across Hindu, Buddhist, Jain, and Sikh traditions, it is considered one of the most accessible and powerful forms of spiritual discipline. A traditional japa session counts rounds on a mala of 108 beads."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How many rounds of japa should I do daily?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Most traditions recommend starting with 1–4 rounds (108–432 mantras) per day and gradually increasing. In the Gaudiya Vaishnava tradition, initiated devotees chant a minimum of 16 rounds (1,728 Hare Krishna mahas) daily. For beginners, even one focused round with full attention is deeply beneficial."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I use a digital mala instead of tulsi beads?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. A digital mala like DoJapa tracks your count with the same accuracy as physical beads. Traditionalists recommend physical tulsi or rudraksha beads for the tactile, meditative quality they add. A digital mala is ideal for travel, accessibility, or when your physical mala is not at hand."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Which mantra is best for beginners?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "The Hare Krishna Maha Mantra, Ram Naam, and Om Namah Shivaya are widely recommended for beginners due to their simplicity, universality, and the depth of tradition supporting them. The best mantra is often the one your heart responds to most naturally, or one given by a qualified teacher."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What is the significance of 108 beads on a mala?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "108 is sacred across Hinduism, Buddhism, and Jainism. The sun's diameter is approximately 108 times that of Earth. There are 108 Upanishads and 108 names of major deities. Mathematically, 108 = 1^1 × 2^2 × 3^3, which ancient scholars found cosmically significant. One full mala (108 repetitions) represents a complete cycle."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is it okay to do japa without initiation?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. Public mantras such as the Hare Krishna Maha Mantra, Om Namah Shivaya, Gayatri, and Ram Naam can be chanted by anyone sincerely seeking spiritual growth. Initiation intensifies the power of a mantra by connecting the practitioner to a living lineage, but it is not a prerequisite for beginning japa practice."
+          }
+        }
+      ]
+    }
+    </script>
+
+    <!-- BreadcrumbList — breadcrumb paths in search result titles -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://www.dojapa.com/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Mantras",
+          "item": "https://www.dojapa.com/mantras"
+        }
+      ]
+    }
+    </script>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <noscript>
+      <p>DoJapa is a digital mala and mantra japa counter. Please enable JavaScript, or
+         <a href="https://www.dojapa.com/download">download the mobile app</a>.</p>
+    </noscript>
   </body>
 </html>

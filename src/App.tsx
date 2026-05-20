@@ -89,7 +89,11 @@ function App() {
 
     // Render lightweight guest view when user arrived via a pledge QR code
     if (guestPledgeId) {
-        return <GuestJapaView pledgeId={guestPledgeId} />;
+        return (
+            <CommunityProvider>
+                <GuestJapaView pledgeId={guestPledgeId} />
+            </CommunityProvider>
+        );
     }
 
     return (

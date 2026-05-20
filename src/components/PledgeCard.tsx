@@ -15,6 +15,7 @@ interface PledgeCardProps {
     canManage?: boolean;
     onEdit?: (pledge: Pledge) => void;
     onDelete?: (pledge: Pledge) => void;
+    onEnableGuestQr?: (pledge: Pledge) => Promise<void> | void;
     variant?: 'personal' | 'community';
 }
 
@@ -28,15 +29,36 @@ export const PledgeCard: React.FC<PledgeCardProps> = ({
     canManage,
     onEdit,
     onDelete,
+    onEnableGuestQr,
     variant = 'community'
 }) => {
     const { t } = useTranslation();
     const isPersonal = variant === 'personal';
     const [showQR, setShowQR] = useState(false);
+    const [enablingQr, setEnablingQr] = useState(false);
 
     const guestUrl = `${window.location.origin}${window.location.pathname}?pledge=${pledge.id}`;
     const progress = Math.min(100, Math.round((pledge.currentMalas / pledge.targetMalas) * 100));
     const isCompleted = pledge.currentMalas >= pledge.targetMalas;
+
+    const handleQrClick = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+
+        if (!pledge.isPublic) {
+            const confirmed = window.confirm('Enable guest QR for this pledge? Anyone with the QR link will be able to offer malas without signing in.');
+            if (!confirmed) return;
+
+            try {
+                setEnablingQr(true);
+                await onEnableGuestQr?.(pledge);
+                pledge.isPublic = true;
+            } finally {
+                setEnablingQr(false);
+            }
+        }
+
+        setShowQR(true);
+    };
 
     return (
         <Card
@@ -84,18 +106,18 @@ export const PledgeCard: React.FC<PledgeCardProps> = ({
             {/* Management Controls */}
             {(canManage || isPersonal) && (
                 <Box sx={{ position: 'absolute', top: 12, right: isJoined && !isPersonal ? 80 : 12, zIndex: 2, display: 'flex', gap: 1 }}>
-                    {!isPersonal && pledge.isPublic && (
-                        <Tooltip title={t('pledge.shareQR')}>
-                            <IconButton
-                                size="small"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setShowQR(true);
-                                }}
-                                sx={{ bgcolor: 'rgba(255,255,255,0.8)', '&:hover': { bgcolor: 'white' } }}
-                            >
-                                <QrCode size={16} color="#92400E" />
-                            </IconButton>
+                    {!isPersonal && (
+                        <Tooltip title={pledge.isPublic ? t('pledge.shareQR') : 'Enable guest QR'}>
+                            <span>
+                                <IconButton
+                                    size="small"
+                                    onClick={handleQrClick}
+                                    disabled={enablingQr}
+                                    sx={{ bgcolor: 'rgba(255,255,255,0.8)', '&:hover': { bgcolor: 'white' } }}
+                                >
+                                    <QrCode size={16} color={pledge.isPublic ? '#92400E' : '#666'} />
+                                </IconButton>
+                            </span>
                         </Tooltip>
                     )}
                     <Tooltip title={t('pledge.editCause')}>

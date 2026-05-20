@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LanguageToggle } from './LanguageToggle';
+import { FeedbackForm } from './FeedbackForm';
 import { Box, Typography, Avatar, Paper, IconButton, Button, CircularProgress } from '@mui/material';
-import { Settings, LogOut, Award, Flame, History } from 'lucide-react';
+import { Settings, LogOut, Award, Flame, History, MessageSquare } from 'lucide-react';
 import { useTheme } from '@mui/material/styles';
 import { useAuth } from '../contexts/AuthContext';
 import { pledgeService } from '../services/pledgeService';
@@ -26,6 +27,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSelectPledge, onNavi
 
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [loading, setLoading] = useState(false);
+    const [feedbackOpen, setFeedbackOpen] = useState(false);
     // pledges state is now derived from context
 
     useEffect(() => {
@@ -236,6 +238,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSelectPledge, onNavi
                 </Box>
                 <Button
                     variant="outlined"
+                    fullWidth
+                    startIcon={<MessageSquare size={18} />}
+                    onClick={() => setFeedbackOpen(true)}
+                    sx={{ borderRadius: 3, textTransform: 'none', mb: 2 }}
+                >
+                    {t('feedback.sendFeedback')}
+                </Button>
+                <Button
+                    variant="outlined"
                     color="error"
                     fullWidth
                     startIcon={<LogOut size={18} />}
@@ -244,6 +255,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSelectPledge, onNavi
                 >
                     {t('profile.signOut')}
                 </Button>
+                <FeedbackForm open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
 
                 {import.meta.env.DEV && (
                     <>
@@ -270,22 +282,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSelectPledge, onNavi
                             sx={{ mt: 2, borderRadius: 3, textTransform: 'none' }}
                         >
                             [DEV] Clear Local Data
-                        </Button>
-                        <Button
-                            variant="text"
-                            color="secondary"
-                            fullWidth
-                            onClick={() => {
-                                if (user) {
-                                    import('firebase/firestore').then(({ doc, setDoc }) => {
-                                        setDoc(doc(db, 'users', user.uid), { role: 'superadmin' }, { merge: true })
-                                            .then(() => alert('You are now a superadmin! The navigation bar will update shortly.'));
-                                    });
-                                }
-                            }}
-                            sx={{ mt: 2, borderRadius: 3, textTransform: 'none' }}
-                        >
-                            [DEV] Make Me Superadmin
                         </Button>
                     </>
                 )}

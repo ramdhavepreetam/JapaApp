@@ -1,0 +1,89 @@
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "name": "Japa Meditation FAQ — DoJapa",
+  "description": "Answers to the most common questions about japa meditation, digital malas, mantra practice, and daily sadhana.",
+  "url": "https://www.dojapa.com/#faq",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What is japa?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Japa (Sanskrit: जप, IAST: japa) is the meditative repetition of a divine name, mantra, or sacred syllable. It is one of the oldest and most universally practiced forms of bhakti (devotional) sadhana, appearing in Hindu, Buddhist, Jain, and Sikh traditions. Japa can be performed aloud (vaikhari), in a whisper (upamshu), or mentally (manasika). A round of japa is traditionally counted on a mala of 108 beads."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How many rounds of japa should I do daily?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The number varies by tradition and personal capacity. In the Gaudiya Vaishnava (ISKCON) tradition, initiated devotees chant a minimum of 16 rounds of the Hare Krishna Maha Mantra per day (1,728 repetitions). In Shaiva practice, 108 repetitions of Om Namah Shivaya is a common daily minimum. For beginners, even 1 round (108 mantras) practiced with full attention and consistency is deeply transformative. The goal is steady increase over time — quality of attention matters more than quantity."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I use a digital mala instead of tulsi or rudraksha beads?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. A digital mala like DoJapa accurately tracks your mantra count and is especially useful for travel, accessibility needs, or when you don't have your physical mala at hand. Traditionalists note that tulsi (sacred basil) and rudraksha beads carry their own spiritual energy and the tactile act of moving beads keeps the hands occupied and the mind focused. Many practitioners use both: a digital mala during the day and physical beads during formal puja (worship) sessions. The sincerity of attention is what matters most to the practice."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Which mantra is best for beginners?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The most widely recommended mantras for beginners are: (1) Hare Krishna Maha Mantra — universally accessible, deeply purifying, and supported by a vast living tradition; (2) Ram Naam (Jai Shri Ram) — simple, powerful, and beloved across North India; (3) Om Namah Shivaya — the Panchakshara Mantra, suitable for all temperaments; (4) Om Mani Padme Hum — the quintessential Buddhist compassion mantra. The 'best' mantra is ultimately the one that resonates with your heart, or one received from a qualified teacher (guru) in your tradition."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is it okay to do japa without initiation (dīkṣā)?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Public mantras such as the Hare Krishna Maha Mantra, Om Namah Shivaya, Ram Naam, and Om Mani Padme Hum can be chanted sincerely by anyone seeking spiritual growth, regardless of initiation status. The Bhagavata Purana and many acharyas affirm that the holy name is freely available to all. Formal initiation (dīkṣā) connects the practitioner to a living lineage and multiplies the potency of the mantra, but it is not a prerequisite for beginning. Start where you are."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the significance of 108 in japa?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "108 is considered a sacred number across multiple dharmic traditions. Key reasons include: (1) There are 108 Upanishads in the Vedic corpus; (2) The sun's diameter is approximately 108 times the Earth's diameter; (3) Mathematically, 108 = 1^1 × 2^2 × 3^3, which ancient scholars found to represent completeness; (4) There are 108 names of major deities (Vishnu, Shiva, Devi); (5) In Sanskrit, there are 54 letters, each with masculine (Shiva) and feminine (Shakti) aspects — totaling 108. One complete round of 108 mantras is called one mala."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the best time of day to do japa?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Brahma Muhurta — the 'hour of Brahma' — occurring approximately 1.5 hours before sunrise (around 4:00–5:30 AM) is considered the most auspicious time for japa and spiritual practice. The mind is sattvic (clear and calm), the atmosphere is charged with prana, and there are fewer worldly distractions. If Brahma Muhurta is not possible, any fixed time practiced consistently is beneficial. Many practitioners also do a shorter evening session at dusk (sandhya). Consistency matters more than the exact hour."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I do japa while walking or doing other activities?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Ajapa-japa — the continuous, effortless repetition of a mantra even while engaged in daily activities — is the ideal fruition of japa practice. It can be done while walking, cooking, or commuting. However, formal seated japa (with full attention and a physical or digital mala) is recommended as the primary practice, especially for beginners. Activities requiring heavy cognitive engagement should not be mixed with formal japa. The DoJapa app's simple tap-counter is designed for distraction-free counting during dedicated sessions."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What are the benefits of daily japa practice?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Traditional scriptures describe japa as capable of purifying the mind, reducing karmic impressions (samskaras), and awakening devotion (bhakti). Modern research on repetitive mantra meditation shows reductions in cortisol (stress hormone), activation of the parasympathetic nervous system, and improved focus and emotional regulation — effects consistent with other mindfulness practices. Practically, daily japa builds a spiritual routine (sadhana), cultivates patience and concentration, and creates a felt sense of connection with the divine. Benefits deepen significantly when practiced consistently over months and years."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How does DoJapa work? Is it free?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "DoJapa is a free digital mala app available on web, iOS, and Android. You tap the screen to count each mantra repetition — the app tracks beads per round (108), total rounds per day, streaks, and lifetime count. You can select from multiple mantras (Hare Krishna, Gayatri, Om Namah Shivaya, Ram Naam, Om Mani Padme Hum, or custom mantras), set daily round goals, and listen to guided chanting audio. Your sadhana data syncs across devices. No account is required to begin counting — simply open the app and start. Visit dojapa.com to begin."
+      }
+    }
+  ]
+}

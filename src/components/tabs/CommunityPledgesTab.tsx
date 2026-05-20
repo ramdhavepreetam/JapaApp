@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
     Box, Typography, Button, CircularProgress, Alert, Fab,
-    Dialog
+    Dialog, TextField
 } from '@mui/material';
 import { Plus } from 'lucide-react';
 import { pledgeService } from '../../services/pledgeService';
@@ -26,6 +26,10 @@ export const CommunityPledgesTab: React.FC<CommunityPledgesTabProps> = ({ commun
     const [showForm, setShowForm] = useState(false);
     const [creating, setCreating] = useState(false);
     const [createError, setCreateError] = useState<string | null>(null);
+    const [contributeDialog, setContributeDialog] = useState<{ open: boolean; pledge: Pledge | null; malas: string }>({
+        open: false, pledge: null, malas: ''
+    });
+    const [contributing, setContributing] = useState(false);
 
     const isAdmin = currentUserRole === 'owner' || currentUserRole === 'admin';
 
@@ -66,11 +70,31 @@ export const CommunityPledgesTab: React.FC<CommunityPledgesTabProps> = ({ commun
     const handleJoin = async (pledge: Pledge) => {
         if (!user) { alert('Please sign in to join a pledge.'); return; }
         const alreadyJoined = myParticipations.some(p => p.pledgeId === pledge.id);
+        if (alreadyJoined) {
+            setContributeDialog({ open: true, pledge, malas: '' });
+            return;
+        }
         try {
-            await pledgeService.joinPledge(pledge, user as User, alreadyJoined);
+            await pledgeService.joinPledge(pledge, user as User, false);
             await load();
         } catch (e: any) {
             setError(e.message || 'Failed to join pledge');
+        }
+    };
+
+    const handleContribute = async () => {
+        if (!user || !contributeDialog.pledge) return;
+        const malas = parseInt(contributeDialog.malas);
+        if (isNaN(malas) || malas <= 0) return;
+        try {
+            setContributing(true);
+            await pledgeService.contribute(contributeDialog.pledge.id, user.uid, malas);
+            setContributeDialog({ open: false, pledge: null, malas: '' });
+            await load();
+        } catch (e: any) {
+            setError(e.message || 'Failed to record contribution');
+        } finally {
+            setContributing(false);
         }
     };
 
@@ -91,6 +115,17 @@ export const CommunityPledgesTab: React.FC<CommunityPledgesTabProps> = ({ commun
             await load();
         } catch (e: any) {
             setError(e.message || 'Failed to delete pledge');
+        }
+    };
+
+    const handleEnableGuestQr = async (pledge: Pledge) => {
+        if (!user) return;
+        try {
+            await pledgeService.updatePledge(pledge.id, { isPublic: true }, user.uid);
+            setPledges(prev => prev.map(item => item.id === pledge.id ? { ...item, isPublic: true } : item));
+        } catch (e: any) {
+            setError(e.message || 'Failed to enable guest QR');
+            throw e;
         }
     };
 
@@ -132,6 +167,7 @@ export const CommunityPledgesTab: React.FC<CommunityPledgesTabProps> = ({ commun
                                 myContribution={myContrib}
                                 canManage={canManage}
                                 onDelete={handleDelete}
+                                onEnableGuestQr={handleEnableGuestQr}
                             />
                         );
                     })}
@@ -149,6 +185,43 @@ export const CommunityPledgesTab: React.FC<CommunityPledgesTabProps> = ({ commun
                     <Plus size={20} />
                 </Fab>
             )}
+
+            {/* Contribute Dialog */}
+            <Dialog
+                open={contributeDialog.open}
+                onClose={() => setContributeDialog({ open: false, pledge: null, malas: '' })}
+                maxWidth="xs"
+                fullWidth
+            >
+                <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <Typography variant="h6">Log Malas</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                        {contributeDialog.pledge?.title}
+                    </Typography>
+                    <TextField
+                        type="number"
+                        label="Malas"
+                        value={contributeDialog.malas}
+                        onChange={(e) => setContributeDialog(prev => ({ ...prev, malas: e.target.value }))}
+                        fullWidth
+                        inputProps={{ min: 1 }}
+                        autoFocus
+                    />
+                    <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                        <Button onClick={() => setContributeDialog({ open: false, pledge: null, malas: '' })} color="inherit">
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleContribute}
+                            variant="contained"
+                            color="primary"
+                            disabled={contributing || !contributeDialog.malas || parseInt(contributeDialog.malas) <= 0}
+                        >
+                            {contributing ? 'Saving...' : 'Log Malas'}
+                        </Button>
+                    </Box>
+                </Box>
+            </Dialog>
 
             {/* Create Pledge Dialog */}
             <Dialog open={showForm} onClose={() => { setShowForm(false); setCreateError(null); }} maxWidth="sm" fullWidth>

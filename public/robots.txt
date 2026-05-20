@@ -1,0 +1,30 @@
+# robots.txt — dojapa.com
+# Generated for DoJapa (JappaApp) — https://www.dojapa.com
+#
+# Strategy: Open the entire public site to all crawlers.
+# Block authenticated/private routes so Google doesn't waste crawl budget
+# on pages it can't index anyway (login-walled or API-only).
+
+User-agent: *
+Allow: /
+
+# Private user areas — no indexable content, protect user privacy
+Disallow: /user-dashboard
+Disallow: /user-dashboard/
+Disallow: /admin
+Disallow: /admin/
+Disallow: /api/
+Disallow: /api
+
+# Prevent indexing of raw asset directories (crawl budget)
+Disallow: /static/
+Disallow: /_next/
+Disallow: /build/
+
+# Allow Google Images to crawl mantra artwork & icons
+User-agent: Googlebot-Image
+Allow: /images/
+Allow: /icons/
+
+# Sitemap location — submit this URL directly to Google Search Console too
+Sitemap: https://www.dojapa.com/sitemap.xml

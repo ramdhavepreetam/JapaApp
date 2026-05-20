@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Typography, Avatar, List, ListItem, ListItemAvatar, ListItemText, LinearProgress } from '@mui/material';
+import { Box, Typography, Avatar, List, ListItem, ListItemAvatar, LinearProgress, IconButton } from '@mui/material';
 import { JapaCounter } from '../JapaCounter';
 import { Community, JapaEntry } from '../../types/community';
 import { communityJapaService } from '../../services/communityJapaService';
+import { japaReactionService, JapaReactions, ReactionType } from '../../services/japaReactionService';
 import { useAuth } from '../../contexts/AuthContext';
 import { Clock, Zap } from 'lucide-react';
 
@@ -16,10 +17,30 @@ export const CommunityCounterTab: React.FC<CommunityCounterTabProps> = ({ commun
     const [recentEntries, setRecentEntries] = useState<JapaEntry[]>([]);
     const [localTotalMalas, setLocalTotalMalas] = useState(community.totalMalas);
     const [myContribution, setMyContribution] = useState<number>(0);
+    const [reactions, setReactions] = useState<Record<string, JapaReactions>>({});
+    const [reactionLoading, setReactionLoading] = useState<string | null>(null);
 
     // Refresh only the feed (safe to poll quickly)
     const refreshFeed = () => {
-        communityJapaService.getRecentEntries(community.id).then(setRecentEntries);
+        communityJapaService.getRecentEntries(community.id).then(entries => {
+            setRecentEntries(entries);
+            const ids = entries.map(e => e.id);
+            if (ids.length > 0) {
+                japaReactionService.getBatchReactions(community.id, ids).then(setReactions);
+            }
+        });
+    };
+
+    const handleReaction = async (entryId: string, type: ReactionType) => {
+        if (!user) return;
+        const key = entryId + type;
+        setReactionLoading(key);
+        try {
+            const updated = await japaReactionService.toggleReaction(community.id, entryId, user.uid, type);
+            setReactions(prev => ({ ...prev, [entryId]: updated }));
+        } finally {
+            setReactionLoading(null);
+        }
     };
 
     // Fetch my specific contribution efficiently via resilient service ONCE, to avoid stale transaction reads
@@ -102,10 +123,10 @@ export const CommunityCounterTab: React.FC<CommunityCounterTabProps> = ({ commun
                 />
             </Box>
 
-            {/* Recent Activity — fixed max-height, scrolls internally */}
-            <Box sx={{ maxHeight: 220, bgcolor: 'background.paper', borderTop: 1, borderColor: 'divider', display: 'flex', flexDirection: 'column' }}>
+            {/* Recent Sessions — with reactions */}
+            <Box sx={{ maxHeight: 300, bgcolor: 'background.paper', borderTop: 1, borderColor: 'divider', display: 'flex', flexDirection: 'column' }}>
                 <Typography variant="subtitle2" sx={{ p: 1, px: 2, bgcolor: 'action.hover', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
-                    <Clock size={14} /> Recent Activity
+                    <Clock size={14} /> Recent Sessions
                 </Typography>
                 <List dense sx={{ flex: 1, overflowY: 'auto' }}>
                     {recentEntries.length === 0 ? (
@@ -131,28 +152,57 @@ export const CommunityCounterTab: React.FC<CommunityCounterTabProps> = ({ commun
                                 if (hrs < 24) return `${hrs}h ago`;
                                 return entryDate.toLocaleDateString();
                             })();
+                            const entryReactions = reactions[entry.id];
+                            const myReaction = entryReactions?.reactors[user?.uid || ''] as ReactionType | undefined;
+                            const REACTION_EMOJIS: Record<ReactionType, string> = { pranams: '🙏', heart: '❤️', sparkle: '✨' };
                             return (
-                                <ListItem key={entry.id} sx={{ py: 0.5 }}>
+                                <ListItem key={entry.id} sx={{ py: 0.5, alignItems: 'flex-start' }}>
                                     <ListItemAvatar>
                                         <Avatar
                                             src={isMe ? (user?.photoURL || '') : (entry.photoURL || '')}
-                                            sx={{ width: 28, height: 28, fontSize: 12, bgcolor: isMe ? 'primary.main' : 'secondary.main' }}
+                                            sx={{ width: 28, height: 28, fontSize: 12, bgcolor: isMe ? 'primary.main' : 'secondary.main', mt: 0.5 }}
                                         >
                                             {initial}
                                         </Avatar>
                                     </ListItemAvatar>
-                                    <ListItemText
-                                        primary={
-                                            <Typography variant="body2">
-                                                <b>{name}</b> chanted {entry.malas > 0 ? <><b>{entry.malas}</b> mala{entry.malas !== 1 ? 's' : ''}</> : <><b>{entry.mantras}</b> mantras</>}
-                                            </Typography>
-                                        }
-                                        secondary={
-                                            <Typography variant="caption" color="text.secondary">
+                                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                                        <Typography variant="body2">
+                                            <b>{name}</b> chanted {entry.malas > 0 ? <><b>{entry.malas}</b> mala{entry.malas !== 1 ? 's' : ''}</> : <><b>{entry.mantras}</b> mantras</>}
+                                        </Typography>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap', mt: 0.25 }}>
+                                            <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>
                                                 {timeAgo}
                                             </Typography>
-                                        }
-                                    />
+                                            {!isMe && (['pranams', 'heart', 'sparkle'] as ReactionType[]).map(rType => {
+                                                const count = entryReactions?.[rType] || 0;
+                                                const active = myReaction === rType;
+                                                const busy = reactionLoading === entry.id + rType;
+                                                return (
+                                                    <IconButton
+                                                        key={rType}
+                                                        size="small"
+                                                        onClick={() => handleReaction(entry.id, rType)}
+                                                        disabled={busy}
+                                                        sx={{
+                                                            px: 0.75, py: 0.25, borderRadius: 2,
+                                                            fontSize: '0.75rem', lineHeight: 1,
+                                                            bgcolor: active ? 'primary.light' : 'action.hover',
+                                                            color: active ? 'primary.dark' : 'text.secondary',
+                                                            '&:hover': { bgcolor: 'primary.light' },
+                                                            minWidth: 'auto', gap: 0.25
+                                                        }}
+                                                    >
+                                                        <span style={{ fontSize: '0.85rem' }}>{REACTION_EMOJIS[rType]}</span>
+                                                        {count > 0 && (
+                                                            <Typography variant="caption" sx={{ fontSize: '0.7rem', fontWeight: 600 }}>
+                                                                {count}
+                                                            </Typography>
+                                                        )}
+                                                    </IconButton>
+                                                );
+                                            })}
+                                        </Box>
+                                    </Box>
                                 </ListItem>
                             );
                         })
