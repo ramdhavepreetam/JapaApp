@@ -31,6 +31,7 @@ interface JapaCounterProps {
 }
 
 const iosSwitchAttribute = { switch: '' } as unknown as React.InputHTMLAttributes<HTMLInputElement>;
+const MALA_COMPLETION_HAPTIC_PATTERN = [700, 150, 700, 150, 900];
 
 export const JapaCounter: React.FC<JapaCounterProps> = ({
     activePledge,
@@ -188,6 +189,39 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
         }
     };
 
+    const playMalaCompletionSound = () => {
+        if (!soundEnabled) return;
+        try {
+            const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+
+            const playTone = (frequency: number, startOffset: number, duration: number, volume: number) => {
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+
+                const startAt = audioCtx.currentTime + startOffset;
+                const endAt = startAt + duration;
+
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(frequency, startAt);
+                gainNode.gain.setValueAtTime(0.0001, startAt);
+                gainNode.gain.exponentialRampToValueAtTime(volume, startAt + 0.02);
+                gainNode.gain.exponentialRampToValueAtTime(0.0001, endAt);
+
+                oscillator.start(startAt);
+                oscillator.stop(endAt);
+            };
+
+            playTone(660, 0, 0.18, 0.08);
+            playTone(880, 0.2, 0.22, 0.09);
+            playTone(1320, 0.48, 0.65, 0.07);
+        } catch (e) {
+            console.error("Audio error", e);
+        }
+    };
+
     const submitCommunityEntry = async (malas: number, mantras: number) => {
         if (!user || !contextId) return;
 
@@ -236,10 +270,8 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
         setData({ ...result.newData });
 
         if (result.malaCompleted) {
-            // Long, distinct vibration pattern: two 500ms strong buzzes so you can't miss it
-            if (!hapticHandled) {
-                triggerHaptic([500, 200, 500]);
-            }
+            triggerHaptic(MALA_COMPLETION_HAPTIC_PATTERN);
+            playMalaCompletionSound();
 
             const msg = mode === 'community' ? t('counter.malaOffered')
                 : (mode === 'pledge' || mode === 'guest-pledge' || mode === 'personal-pledge') ? t('counter.contributionSent')
