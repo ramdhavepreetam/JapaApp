@@ -10,9 +10,10 @@ import { communityService } from '../../services/communityService';
 interface NotificationsPageProps {
     onBack: () => void;
     onNavigate: (view: any, params?: any) => void;
+    onRead?: () => void;
 }
 
-export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onBack }) => {
+export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onBack, onRead }) => {
     const { user } = useAuth();
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [loading, setLoading] = useState(true);
@@ -37,17 +38,14 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onBack }) 
     const handleClick = async (notification: Notification) => {
         if (!user) return;
         if (!notification.read) {
-            // Optimistic update
             setNotifications(prev => prev.map(n => n.id === notification.id ? { ...n, read: true } : n));
-            // For announcement, we mark the whole community as read
             if (notification.type === 'announcement' && notification.data?.communityId) {
                 await notificationService.markAnnouncementsRead(notification.data.communityId, user.uid);
             } else {
-                // Fallback for old notifications if any
                 await notificationService.markRead(user.uid, notification.id);
             }
+            onRead?.();
         }
-        // Handle navigation based on type later if needed
     };
 
     const getIcon = (type: string) => {

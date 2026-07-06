@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'framer-motion';
 import { JapaCounter } from './components/JapaCounter';
@@ -15,6 +15,8 @@ import { Pledge, PersonalPledge } from './types/pledge';
 import { Box, Paper, BottomNavigation, BottomNavigationAction, IconButton, Badge } from '@mui/material';
 import { CommunityProvider } from './contexts/CommunityContext';
 import { useAuth } from './contexts/AuthContext';
+import { communityService } from './services/communityService';
+import { notificationService } from './services/notificationService';
 
 // Lazy load admin
 import { lazy, Suspense } from 'react';
@@ -37,8 +39,27 @@ function App() {
         document.documentElement.lang = i18n.language?.startsWith('hi') ? 'hi' : 'en';
     }, [i18n.language]);
     
+    // Notification unread badge
+    const [unreadCount, setUnreadCount] = useState(0);
+
+    const refreshUnreadCount = useCallback(async () => {
+        if (!authUser) return;
+        try {
+            const myComms = await communityService.getMyCommunities(authUser.uid);
+            const ids = myComms.map(c => c.communityId);
+            const count = await notificationService.getUnreadCount(authUser.uid, ids);
+            setUnreadCount(count);
+        } catch { /* non-fatal */ }
+    }, [authUser]);
+
+    useEffect(() => {
+        refreshUnreadCount();
+    }, [refreshUnreadCount]);
+
     // Extended View State
-    const [view, setView] = useState<'counter' | 'report' | 'pledges' | 'communities' | 'profile' | 'community-create' | 'community-home' | 'notifications' | 'admin'>('counter');
+    type AppView = 'counter' | 'report' | 'pledges' | 'communities' | 'profile' | 'community-create' | 'community-home' | 'notifications' | 'admin';
+    const [view, setView] = useState<AppView>('counter');
+    const [previousView, setPreviousView] = useState<AppView>('counter');
     const [activePledge, setActivePledge] = useState<Pledge | null>(null);
     const [activePersonalPledge, setActivePersonalPledge] = useState<PersonalPledge | null>(null);
     const [completedPersonalPledge, setCompletedPersonalPledge] = useState<PersonalPledge | null>(null);
@@ -63,7 +84,7 @@ function App() {
     };
 
     // Unused params are fine in JS/TS if not strict-strict about args, but let's use them to avoid linter
-    const handleNavigate = (newView: any, param?: any) => {
+    const handleNavigate = (newView: AppView, param?: any) => {
         if (newView === 'community-home' && param) {
             setActiveCommunityId(param);
         }
@@ -72,6 +93,7 @@ function App() {
             setView('counter');
             return;
         }
+        setPreviousView(view);
         setView(newView);
     };
 
@@ -112,10 +134,10 @@ function App() {
                 {['pledges', 'communities', 'profile'].includes(view) && (
                     <Box sx={{ position: 'absolute', top: 16, right: 16, zIndex: 50 }}>
                         <IconButton
-                            onClick={() => setView('notifications')}
+                            onClick={() => { setPreviousView(view); setView('notifications'); setUnreadCount(0); }}
                             sx={{ bgcolor: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(4px)', '&:hover': { bgcolor: 'white' } }}
                         >
-                            <Badge color="error" variant="dot">
+                            <Badge color="error" badgeContent={unreadCount} max={9}>
                                 <Bell size={20} className="text-gray-700" />
                             </Badge>
                         </IconButton>
@@ -221,8 +243,9 @@ function App() {
                                 style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 60, backgroundColor: 'white' }}
                             >
                                 <NotificationsPage
-                                    onBack={() => setView('counter')}
+                                    onBack={() => setView(previousView)}
                                     onNavigate={handleNavigate}
+                                    onRead={refreshUnreadCount}
                                 />
                             </motion.div>
                         )}

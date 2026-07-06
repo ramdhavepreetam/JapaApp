@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Box, Typography, Avatar, List, ListItem, ListItemAvatar, LinearProgress, IconButton } from '@mui/material';
 import { JapaCounter } from '../JapaCounter';
 import { Community, JapaEntry } from '../../types/community';
@@ -6,6 +6,7 @@ import { communityJapaService } from '../../services/communityJapaService';
 import { japaReactionService, JapaReactions, ReactionType } from '../../services/japaReactionService';
 import { useAuth } from '../../contexts/AuthContext';
 import { Clock, Zap } from 'lucide-react';
+import { Timestamp } from 'firebase/firestore';
 
 interface CommunityCounterTabProps {
     community: Community;
@@ -16,14 +17,21 @@ export const CommunityCounterTab: React.FC<CommunityCounterTabProps> = ({ commun
     const { user } = useAuth();
     const [recentEntries, setRecentEntries] = useState<JapaEntry[]>([]);
     const [localTotalMalas, setLocalTotalMalas] = useState(community.totalMalas);
+    // Track the last optimistic bump so the community.totalMalas sync effect doesn't
+    // race-overwrite it when the parent re-renders before Firestore has caught up.
+    const pendingMalas = useRef(0);
     const [myContribution, setMyContribution] = useState<number>(0);
     const [reactions, setReactions] = useState<Record<string, JapaReactions>>({});
     const [reactionLoading, setReactionLoading] = useState<string | null>(null);
 
-    // Refresh only the feed (safe to poll quickly)
     const refreshFeed = () => {
         communityJapaService.getRecentEntries(community.id).then(entries => {
-            setRecentEntries(entries);
+            // Replace optimistic placeholders with real entries, keeping any not-yet-confirmed ones
+            setRecentEntries(prev => {
+                const realIds = new Set(entries.map(e => e.id));
+                const stillPending = prev.filter(e => e.id.startsWith('optimistic_') && !realIds.has(e.id));
+                return [...stillPending, ...entries];
+            });
             const ids = entries.map(e => e.id);
             if (ids.length > 0) {
                 japaReactionService.getBatchReactions(community.id, ids).then(setReactions);
@@ -65,30 +73,55 @@ export const CommunityCounterTab: React.FC<CommunityCounterTabProps> = ({ commun
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [community.id, user]);
 
-    // Sync localTotalMalas when parent re-renders with updated community data
+    // Sync localTotalMalas when parent re-renders with Firestore data — but only if
+    // it's strictly higher than our optimistic value to avoid snapping backwards.
     useEffect(() => {
-        setLocalTotalMalas(community.totalMalas);
+        setLocalTotalMalas(prev => {
+            const firestoreVal = community.totalMalas + pendingMalas.current;
+            return firestoreVal > prev ? firestoreVal : prev;
+        });
     }, [community.totalMalas]);
 
-    const handleSaved = (malas: number, _mantras: number) => {
-        // 1. Optimistic UI update — instant feedback
+    const handleSaved = (malas: number, mantras: number) => {
+        // 1. Optimistic UI — instant feedback before any network round-trip
+        pendingMalas.current += malas;
         setLocalTotalMalas(prev => prev + malas);
         setMyContribution(prev => prev + malas);
 
-        // 2. Delayed re-fetch to confirm real values after transaction/mock settles
+        // 2. Prepend optimistic entry to the feed immediately so the user sees it now
+        if (user) {
+            const optimisticEntry: JapaEntry & { queuedAt: number } = {
+                id: `optimistic_${Date.now()}`,
+                userId: user.uid,
+                communityId: community.id,
+                malas,
+                mantras,
+                timestamp: Timestamp.now(),
+                displayName: user.displayName || 'You',
+                photoURL: user.photoURL || '',
+                queuedAt: Date.now(),
+            };
+            setRecentEntries(prev => [optimisticEntry as any, ...prev]);
+        }
+
+        // 3. Re-fetch real data after Firestore transaction has had time to commit.
+        //    Only refresh community total from network when online — offline the
+        //    localStore cache already reflects the optimistic update via queueJapaEntry.
         setTimeout(() => {
             refreshFeed();
             fetchMyContribution();
-            if (community.id) {
+            if (community.id && navigator.onLine) {
                 import('../../services/communityService').then(({ communityService }) => {
                     communityService.getCommunity(community.id).then(c => {
-                        if (c) setLocalTotalMalas(c.totalMalas);
+                        if (c) {
+                            setLocalTotalMalas(prev => Math.max(prev, c.totalMalas));
+                            pendingMalas.current = 0;
+                        }
                     });
                 });
             }
-            // Notify parent to refresh its community state too
             onCommunityUpdated?.();
-        }, 500);
+        }, 1500);
     };
 
     // Calculate progress (arbitrary goal for now? 1M? or infinite)

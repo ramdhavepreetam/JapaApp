@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Volume2, VolumeX, RotateCcw, Sparkles, Target, Users, Play, RotateCw, WifiOff, Wifi } from 'lucide-react';
+import { Volume2, VolumeX, RotateCcw, Sparkles, Target, Users, Play, RotateCw, WifiOff, Wifi, Flame } from 'lucide-react';
 import { storage, StorageSchema, PendingSyncItem, getTodayDate } from '../lib/storage';
 import { isIOSLike, triggerHaptic } from '../lib/haptics';
 import { BeadRing } from './BeadRing';
@@ -64,6 +64,7 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
         setFocusMode(next);
         localStorage.setItem('japa_focus_mode', String(next));
     };
+    const [streakDays, setStreakDays] = useState<number>(0);
     const [mantras, setMantras] = useState<Mantra[]>([]);
     const [mantrasLoading, setMantrasLoading] = useState(true);
     const [mantraFontSize, setMantraFontSize] = useState<number>(() => {
@@ -118,6 +119,9 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
                 updated.totalMalas = firestoreMalas;
                 storage.save(updated);
                 setData(storage.get());
+            }
+            if (profile.stats?.streakDays) {
+                setStreakDays(profile.stats.streakDays);
             }
         }).catch(() => {}); // silent — never disrupts the counter
     }, [user]);
@@ -654,6 +658,23 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
                             </Typography>
                             <Typography variant="caption" color="text.secondary">{t('counter.malas')}</Typography>
                         </Box>
+                        {streakDays > 0 && (
+                            <>
+                                <Box sx={{ width: '1px', height: 56, bgcolor: 'divider' }} />
+                                <Box sx={{ textAlign: 'center' }}>
+                                    <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 2, fontWeight: 700, display: 'block' }}>
+                                        {t('counter.streak', 'Streak')}
+                                    </Typography>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+                                        <Flame size={20} color="#ea580c" />
+                                        <Typography variant="h3" sx={{ lineHeight: 1, color: '#ea580c' }}>
+                                            {streakDays}
+                                        </Typography>
+                                    </Box>
+                                    <Typography variant="caption" color="text.secondary">{t('counter.days', 'days')}</Typography>
+                                </Box>
+                            </>
+                        )}
                     </Box>
                 )}
 
