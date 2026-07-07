@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Volume2, VolumeX, RotateCcw, Sparkles, Target, Users, Play, RotateCw, WifiOff, Wifi, Flame } from 'lucide-react';
 import { storage, StorageSchema, PendingSyncItem, getTodayDate } from '../lib/storage';
+import { getRankForJaps, getCrossedMilestone, isMilestoneSeen, markMilestoneSeen, Rank } from '../lib/ranks';
+import { track } from '../lib/analytics';
 import { isIOSLike, triggerHaptic } from '../lib/haptics';
 import { BeadRing } from './BeadRing';
 import { Pledge, PersonalPledge } from '../types/pledge';
@@ -28,6 +30,8 @@ interface JapaCounterProps {
     contextId?: string; // pledgeId or communityId
     onSaved?: (malas: number, mantras: number) => void;
     mantra?: string;
+    onRankChange?: (rank: Rank) => void;
+    onMilestoneReached?: (rank: Rank) => void;
 }
 
 const iosSwitchAttribute = { switch: '' } as unknown as React.InputHTMLAttributes<HTMLInputElement>;
@@ -40,7 +44,9 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
     mode: modeProp = activePledge ? 'pledge' : 'personal',
     contextId: contextIdProp = activePledge?.id,
     onSaved,
-    mantra = activePledge?.mantra ?? activePersonalPledge?.mantra
+    mantra = activePledge?.mantra ?? activePersonalPledge?.mantra,
+    onRankChange,
+    onMilestoneReached,
 }) => {
     const mode = activePersonalPledge ? 'personal-pledge' : modeProp;
     const contextId = activePersonalPledge ? activePersonalPledge.id : contextIdProp;
@@ -73,6 +79,7 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
     });
     const theme = useTheme();
     const useIOSNativeHapticTapTarget = isIOSLike();
+    const currentRank = useMemo(() => getRankForJaps(data.totalCounts), [data.totalCounts]);
 
     const handleFontSizeChange = (e: React.MouseEvent, change: number) => {
         e.stopPropagation();
@@ -270,12 +277,27 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
         }
         playClickSound();
 
+        const prevCounts = storage.get().totalCounts;
         const result = storage.increment();
         setData({ ...result.newData });
 
         if (result.malaCompleted) {
             triggerHaptic(MALA_COMPLETION_HAPTIC_PATTERN);
             playMalaCompletionSound();
+
+            // Milestone / rank detection
+            const crossed = getCrossedMilestone(prevCounts, result.newData.totalCounts);
+            if (crossed && !isMilestoneSeen(crossed.id)) {
+                markMilestoneSeen(crossed.id);
+                onMilestoneReached?.(crossed);
+                onRankChange?.(crossed);
+                track.milestoneReached(crossed.id, result.newData.totalCounts);
+            } else {
+                const newRank = getRankForJaps(result.newData.totalCounts);
+                if (newRank.id !== getRankForJaps(prevCounts).id) {
+                    onRankChange?.(newRank);
+                }
+            }
 
             const msg = mode === 'community' ? t('counter.malaOffered')
                 : (mode === 'pledge' || mode === 'guest-pledge' || mode === 'personal-pledge') ? t('counter.contributionSent')
@@ -606,7 +628,11 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
 
                 {/* BeadRing — scaled up in focus mode */}
                 <Box sx={{ transform: effectiveFocusMode ? 'scale(1.15)' : 'scale(1)', transition: 'transform 0.3s ease' }}>
-                    <BeadRing count={data.currentCount} />
+                    <BeadRing
+                        count={data.currentCount}
+                        activeFill={currentRank.beadFill}
+                        inactiveFill={currentRank.beadBackground}
+                    />
                 </Box>
 
                 {/* Progress bar */}

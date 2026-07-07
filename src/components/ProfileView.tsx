@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { motion } from 'framer-motion';
 import { LanguageToggle } from './LanguageToggle';
 import { FeedbackForm } from './FeedbackForm';
 import { Box, Typography, Avatar, Paper, IconButton, Button, CircularProgress } from '@mui/material';
@@ -13,6 +14,8 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { PledgeCard } from './PledgeCard';
 import { useCommunity } from '../contexts/CommunityContext';
+import { getRankForJaps } from '../lib/ranks';
+import { storage } from '../lib/storage';
 
 interface ProfileViewProps {
     onSelectPledge: (pledge: Pledge) => void;
@@ -28,6 +31,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSelectPledge, onNavi
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [loading, setLoading] = useState(false);
     const [feedbackOpen, setFeedbackOpen] = useState(false);
+    const rank = useMemo(() => getRankForJaps(storage.get().totalCounts), [profile?.stats?.totalMalas]);
     // pledges state is now derived from context
 
     useEffect(() => {
@@ -132,24 +136,37 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSelectPledge, onNavi
                     </IconButton>
                 </Box>
 
-                <Avatar
-                    src={user.photoURL || undefined}
-                    sx={{
-                        width: 80,
-                        height: 80,
-                        bgcolor: 'background.paper',
-                        color: 'primary.main',
-                        fontSize: 32,
-                        fontWeight: 'bold',
-                        mb: 2,
-                        boxShadow: '0 8px 24px rgba(0,0,0,0.2)'
-                    }}
-                >
-                    {user.displayName?.[0] || 'S'}
-                </Avatar>
+                <Box sx={{ position: 'relative', mb: 2 }}>
+                    {rank.themeKey !== 'default' && (
+                        <motion.div
+                            animate={{ boxShadow: [`0 0 12px 4px ${rank.auraGlow}`, `0 0 24px 8px ${rank.auraGlow}`, `0 0 12px 4px ${rank.auraGlow}`] }}
+                            transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
+                            style={{ position: 'absolute', inset: -6, borderRadius: '50%', zIndex: 0 }}
+                        />
+                    )}
+                    <Avatar
+                        src={user.photoURL || undefined}
+                        sx={{
+                            width: 80,
+                            height: 80,
+                            bgcolor: 'background.paper',
+                            color: 'primary.main',
+                            fontSize: 32,
+                            fontWeight: 'bold',
+                            boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
+                            position: 'relative',
+                            zIndex: 1,
+                        }}
+                    >
+                        {user.displayName?.[0] || 'S'}
+                    </Avatar>
+                </Box>
 
                 <Typography variant="h5" sx={{ fontWeight: 700, fontFamily: '"Playfair Display", serif' }}>
                     {user.displayName || 'Sadhaka'}
+                </Typography>
+                <Typography variant="caption" sx={{ fontFamily: '"Noto Sans Devanagari", sans-serif', opacity: 0.9, letterSpacing: 2, mb: 0.5 }}>
+                    {rank.titleSanskrit} · {rank.titleEn}
                 </Typography>
                 <Typography variant="caption" sx={{ opacity: 0.8, letterSpacing: 1 }}>
                     {t('profile.memberSince')} {profile?.joinedAt ? new Date(profile.joinedAt.seconds * 1000).toLocaleDateString(undefined, { month: 'short', year: 'numeric' }) : '...'}

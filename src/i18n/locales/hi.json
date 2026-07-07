@@ -161,6 +161,21 @@
     "blessings": "आशीर्वाद",
     "noSessions": "अभी कोई जाप नहीं। पहले शुरू करें!"
   },
+  "ranks": {
+    "nava_sadhaka_title": "नव साधक",
+    "sadhaka_title": "साधक",
+    "abhyasi_title": "अभ्यासी",
+    "tapasvi_title": "तपस्वी",
+    "japa_siddha_title": "जप सिद्ध",
+    "maha_siddha_title": "महा सिद्ध",
+    "nava_sadhaka_subtitle": "आपकी यात्रा शुरू होती है। हर मंत्र महत्वपूर्ण है।",
+    "sadhaka_subtitle": "१,००८ मंत्र पूर्ण! आपने पहला पवित्र कदम उठाया।",
+    "abhyasi_subtitle": "१०,००८ मंत्र पूर्ण! आपका अभ्यास स्थिर हो रहा है।",
+    "tapasvi_subtitle": "१,२५,००० मंत्र! पुरश्चरण पूर्ण। मंत्र सिद्धि आरंभ।",
+    "japa_siddha_subtitle": "१० लाख मंत्र! जप सिद्धि प्राप्त हुई। मंत्र आपका अंग बन गया।",
+    "maha_siddha_subtitle": "१ करोड़ मंत्र! कोटि नाम जाप सम्पन्न। आप दिव्य लोक में प्रवेश कर चुके हैं।",
+    "tapToContine": "जारी रखने के लिए टैप करें"
+  },
   "report": {
     "title": "आपकी यात्रा",
     "individual": "व्यक्तिगत",

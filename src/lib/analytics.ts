@@ -18,4 +18,7 @@ export const track = {
 
     syncFailed: () =>
         safeLog('sync_failed'),
+
+    milestoneReached: (rankId: string, totalCounts: number) =>
+        safeLog('milestone_reached', { rank: rankId, total_counts: totalCounts }),
 };

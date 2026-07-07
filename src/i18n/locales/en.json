@@ -161,6 +161,21 @@
     "blessings": "Blessings",
     "noSessions": "No recent chants. Be the first!"
   },
+  "ranks": {
+    "nava_sadhaka_title": "Nava Sadhaka",
+    "sadhaka_title": "Sadhaka",
+    "abhyasi_title": "Abhyasi",
+    "tapasvi_title": "Tapasvi",
+    "japa_siddha_title": "Japa Siddha",
+    "maha_siddha_title": "Maha Siddha",
+    "nava_sadhaka_subtitle": "Your journey begins. Every mantra counts.",
+    "sadhaka_subtitle": "1,008 mantras completed. You have taken the first sacred step.",
+    "abhyasi_subtitle": "10,008 mantras completed. Your practice is becoming steady.",
+    "tapasvi_subtitle": "1,25,000 mantras! You have completed a Purashcharan. Mantra Siddhi begins.",
+    "japa_siddha_subtitle": "10 Lakh mantras! You have attained Japa Siddha. The mantra is now part of you.",
+    "maha_siddha_subtitle": "1 Crore mantras! Koti Naam Jaap complete. You have crossed into the divine.",
+    "tapToContine": "Tap to continue"
+  },
   "report": {
     "title": "Your Journey",
     "individual": "Individual",

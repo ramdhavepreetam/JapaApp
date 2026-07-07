@@ -123,7 +123,7 @@ export const userService = {
     },
 
     // Uses FieldValue.increment() for totalMalas/totalMantras to avoid race conditions
-    updateUserStats: async (userId: string, malasCompleted: number = 0, countsCompleted: number = 0) => {
+    updateUserStats: async (userId: string, malasCompleted: number = 0, countsCompleted: number = 0, rankId?: string) => {
         if (malasCompleted <= 0 && countsCompleted <= 0) return;
         return runWithFallback(
             async () => {
@@ -146,12 +146,14 @@ export const userService = {
                 const today = getTodayDate();
 
                 // Use increment() for cumulative fields — atomic, safe for concurrent updates
-                await updateDoc(userRef, {
+                const statsUpdate: Record<string, unknown> = {
                     'stats.totalMalas': increment(Math.max(0, malasCompleted)),
                     'stats.totalMantras': increment(Math.max(0, resolvedCounts)),
                     'stats.streakDays': newStreak,
-                    'stats.lastChantDate': today
-                });
+                    'stats.lastChantDate': today,
+                };
+                if (rankId) statsUpdate['stats.rank'] = rankId;
+                await updateDoc(userRef, statsUpdate);
 
                 // Update local cache with best-guess values
                 setCachedProfile(userId, {

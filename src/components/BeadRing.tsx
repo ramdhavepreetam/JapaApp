@@ -1,21 +1,21 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { useTheme } from '@mui/material/styles';
 
 interface BeadRingProps {
     count: number;
+    activeFill?: string;
+    inactiveFill?: string;
 }
 
-export const BeadRing: React.FC<BeadRingProps> = ({ count }) => {
-    // We want to visualize 108 beads.
-    // A spiral or a large circle might be hard to fit on mobile.
-    // Let's try a creative "Digital Mala" visualization.
-    // A growing circle progress, but with 108 distinct dots/segments.
+export const BeadRing: React.FC<BeadRingProps> = ({ count, activeFill, inactiveFill }) => {
+    const muiTheme = useTheme();
+    const fill = activeFill ?? '#fbbf24';
+    const bg = inactiveFill ?? '#4c0519';
+    const counterColor = muiTheme.palette.primary.main;
 
     const beads = Array.from({ length: 108 }, (_, i) => i);
-    const radius = 120; // Radius of the ring
-
-    // Calculate position for each bead on a circle
-    // We start from top ( -90 degrees)
+    const radius = 120;
 
     return (
         <div className="relative w-full max-w-[320px] aspect-square flex items-center justify-center mx-auto">
@@ -35,14 +35,14 @@ export const BeadRing: React.FC<BeadRingProps> = ({ count }) => {
                             cx={cx}
                             cy={cy}
                             r={isActive ? 3 : 2}
-                            fill={isActive ? "#fbbf24" : "#4c0519"} // Gold vs Maroon-950
+                            fill={isActive ? fill : bg}
                             initial={false}
                             animate={{
                                 r: isCurrent ? 6 : (isActive ? 3.5 : 2),
-                                fill: isActive ? "#fbbf24" : "#4c0519",
-                                filter: isCurrent ? "drop-shadow(0 0 6px #fbbf24)" : "none"
+                                fill: isActive ? fill : bg,
+                                filter: isCurrent ? `drop-shadow(0 0 6px ${fill})` : 'none',
                             }}
-                            transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
                         />
                     );
                 })}
@@ -54,8 +54,8 @@ export const BeadRing: React.FC<BeadRingProps> = ({ count }) => {
                     key={count}
                     initial={{ scale: 0.8, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
-                    className="text-7xl font-bold text-saffron-600 drop-shadow-sm"
-                    style={{ fontFamily: '"Playfair Display", serif' }}
+                    className="text-7xl font-bold drop-shadow-sm"
+                    style={{ fontFamily: '"Playfair Display", serif', color: counterColor }}
                 >
                     {count}
                 </motion.div>

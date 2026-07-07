@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'framer-motion';
+import { ThemeProvider } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
 import { JapaCounter } from './components/JapaCounter';
 import { ReportView } from './components/ReportView';
 import { PledgesView } from './components/PledgesView';
@@ -10,6 +12,7 @@ import { CommunityListPage } from './components/pages/CommunityListPage';
 import { CommunityCreatePage } from './components/pages/CommunityCreatePage';
 import { CommunityHomePage } from './components/pages/CommunityHomePage';
 import { NotificationsPage } from './components/pages/NotificationsPage';
+import { MilestoneCelebration } from './components/MilestoneCelebration';
 import { Flame, Home, User, Users, Bell, Shield } from 'lucide-react';
 import { Pledge, PersonalPledge } from './types/pledge';
 import { Box, Paper, BottomNavigation, BottomNavigationAction, IconButton, Badge } from '@mui/material';
@@ -17,6 +20,9 @@ import { CommunityProvider } from './contexts/CommunityContext';
 import { useAuth } from './contexts/AuthContext';
 import { communityService } from './services/communityService';
 import { notificationService } from './services/notificationService';
+import { storage } from './lib/storage';
+import { getRankForJaps, isMilestoneSeen, markMilestoneSeen, Rank } from './lib/ranks';
+import { getThemeForRank } from './theme';
 
 // Lazy load admin
 import { lazy, Suspense } from 'react';
@@ -39,6 +45,24 @@ function App() {
         document.documentElement.lang = i18n.language?.startsWith('hi') ? 'hi' : 'en';
     }, [i18n.language]);
     
+    // Rank & theme
+    const [currentRank, setCurrentRank] = useState<Rank>(() => getRankForJaps(storage.get().totalCounts));
+    const appTheme = useMemo(() => getThemeForRank(currentRank.themeKey), [currentRank.themeKey]);
+    const [pendingCelebration, setPendingCelebration] = useState<Rank | null>(null);
+
+    const handleRankChange = useCallback((r: Rank) => setCurrentRank(prev => prev.id === r.id ? prev : r), []);
+    const handleMilestoneReached = useCallback((r: Rank) => setPendingCelebration(r), []);
+
+    // Show celebration once for users who already have a high rank (e.g. after app upgrade)
+    useEffect(() => {
+        const rank = getRankForJaps(storage.get().totalCounts);
+        if (rank.thresholdJaps > 0 && !isMilestoneSeen(rank.id)) {
+            setPendingCelebration(rank);
+            markMilestoneSeen(rank.id);
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     // Notification unread badge
     const [unreadCount, setUnreadCount] = useState(0);
 
@@ -112,13 +136,18 @@ function App() {
     // Render lightweight guest view when user arrived via a pledge QR code
     if (guestPledgeId) {
         return (
-            <CommunityProvider>
-                <GuestJapaView pledgeId={guestPledgeId} />
-            </CommunityProvider>
+            <ThemeProvider theme={appTheme}>
+                <CssBaseline />
+                <CommunityProvider>
+                    <GuestJapaView pledgeId={guestPledgeId} />
+                </CommunityProvider>
+            </ThemeProvider>
         );
     }
 
     return (
+        <ThemeProvider theme={appTheme}>
+        <CssBaseline />
         <CommunityProvider>
             <Box sx={{
                 height: '100dvh',
@@ -158,6 +187,8 @@ function App() {
                                     activePledge={activePledge}
                                     activePersonalPledge={activePersonalPledge}
                                     onPersonalPledgeComplete={handlePersonalPledgeComplete}
+                                    onRankChange={handleRankChange}
+                                    onMilestoneReached={handleMilestoneReached}
                                 />
                             </motion.div>
                         )}
@@ -304,7 +335,9 @@ function App() {
                     </Paper>
                 )}
             </Box>
+            <MilestoneCelebration rank={pendingCelebration} onDismiss={() => setPendingCelebration(null)} />
         </CommunityProvider>
+        </ThemeProvider>
     );
 }
 

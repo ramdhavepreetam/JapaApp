@@ -4,6 +4,7 @@ export interface UserStats {
   streakDays: number;
   lastChantDate: string | null;
   longestStreak: number;
+  rank?: string;
 }
 
 export interface StreakData {
