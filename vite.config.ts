@@ -10,7 +10,7 @@ export default defineConfig({
       // Use the existing /public/manifest.json rather than generating one
       manifest: false,
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,svg,png,woff2}'],
+        globPatterns: ['**/*.{js,css,html,ico,svg,png,woff,woff2}'],
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api/, /^\/functions/, /__\/auth\//],
         runtimeCaching: [
