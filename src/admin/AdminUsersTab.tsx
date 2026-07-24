@@ -11,6 +11,7 @@ import { adminService } from '../services/adminService';
 import { AdminUserView } from '../types/admin';
 import { UserRole } from '../types/auth';
 import { formatRelativeTime } from '../utils/formatRelativeTime';
+import { getErrorMessage } from '../utils/getErrorMessage';
 
 export const AdminUsersTab: React.FC = () => {
   const PAGE_SIZE = 50;
@@ -52,8 +53,8 @@ export const AdminUsersTab: React.FC = () => {
       if (!cursor) {
         adminService.getAppStats().then(stats => setTotalUsers(stats.totalUsers)).catch(() => {});
       }
-    } catch (err: any) {
-      setError(err.message || 'Failed to fetch users');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to fetch users'));
     } finally {
       setLoading(false);
     }
@@ -91,8 +92,8 @@ export const AdminUsersTab: React.FC = () => {
         setIsLastPage(false);
         const results = await adminService.searchUsers(value.trim());
         setUsers(results);
-      } catch (err: any) {
-        setError(err.message || 'Search failed');
+      } catch (err: unknown) {
+        setError(getErrorMessage(err, 'Search failed'));
       } finally {
         setLoading(false);
       }
@@ -115,8 +116,8 @@ export const AdminUsersTab: React.FC = () => {
       setUsers(data);
       setIsLastPage(data.length < PAGE_SIZE);
       setPage(prev => prev + 1);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load next page');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to load next page'));
     } finally {
       setLoading(false);
     }
@@ -136,8 +137,8 @@ export const AdminUsersTab: React.FC = () => {
       setUsers(data);
       setIsLastPage(data.length < PAGE_SIZE);
       setPage(prev => prev - 1);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load previous page');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to load previous page'));
     } finally {
       setLoading(false);
     }
@@ -155,8 +156,8 @@ export const AdminUsersTab: React.FC = () => {
       await adminService.banUser(selectedUser.uid, banReason);
       setUsers(users.map(u => u.uid === selectedUser.uid ? { ...u, status: 'banned' } : u));
       setBanDialogOpen(false);
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err: unknown) {
+      alert(getErrorMessage(err, 'Failed to ban user'));
     }
   };
 
@@ -165,8 +166,8 @@ export const AdminUsersTab: React.FC = () => {
       try {
         await adminService.unbanUser(user.uid);
         setUsers(users.map(u => u.uid === user.uid ? { ...u, status: 'active' } : u));
-      } catch (err: any) {
-        alert(err.message);
+      } catch (err: unknown) {
+        alert(getErrorMessage(err, 'Failed to unban user'));
       }
     }
   };
@@ -183,8 +184,8 @@ export const AdminUsersTab: React.FC = () => {
       await adminService.assignRole(selectedUser.uid, selectedRole);
       setUsers(users.map(u => u.uid === selectedUser.uid ? { ...u, role: selectedRole } : u));
       setRoleDialogOpen(false);
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err: unknown) {
+      alert(getErrorMessage(err, 'Failed to update role'));
     }
   };
 

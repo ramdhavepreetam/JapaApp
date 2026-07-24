@@ -404,6 +404,15 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
 
     return (
         <Box
+            role="button"
+            aria-label={t('counter.addChant')}
+            tabIndex={0}
+            onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleTap();
+                }
+            }}
             sx={{
                 minHeight: '100%',
                 width: '100%',
@@ -438,6 +447,7 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
                         <IconButton
                             onClick={(e) => { e.stopPropagation(); setSoundEnabled(!soundEnabled); }}
                             color="primary"
+                            aria-label={soundEnabled ? t('counter.muteSound') : t('counter.unmuteSound')}
                             sx={{ bgcolor: 'rgba(234, 88, 12, 0.1)', '&:hover': { bgcolor: 'rgba(234, 88, 12, 0.2)' } }}
                         >
                             {soundEnabled ? <Volume2 size={24} /> : <VolumeX size={24} />}
@@ -445,6 +455,7 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
                         <IconButton
                             onClick={handleReset}
                             color="secondary"
+                            aria-label={t('counter.resetSession')}
                             sx={{ bgcolor: 'rgba(136, 19, 55, 0.1)', '&:hover': { bgcolor: 'rgba(136, 19, 55, 0.2)' } }}
                         >
                             <RotateCcw size={24} />

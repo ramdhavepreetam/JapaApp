@@ -45,22 +45,49 @@ if (!admin.apps.length) {
     admin.initializeApp();
 }
 const db = admin.firestore();
-// Initialize Razorpay
-// Note: RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET must be set in Firebase Functions config or env
-const getRazorpayInstance = () => {
+// Server-side source of truth for subscription prices (in paise), so a client
+// can never request an order for less than the real plan price. Must be kept
+// in sync with the `plans` array in src/components/SubscribeModal.tsx.
+const SUBSCRIPTION_PLAN_PRICES_PAISE = {
+    pro: 19900, // ₹199/mo
+    community: 99900, // ₹999/mo
+};
+// Free-form donations (isSubscription=false) have no fixed price, but we still
+// cap them to guard against fat-fingered or malicious absurd amounts.
+const MAX_DONATION_AMOUNT_PAISE = 500000 * 100; // ₹5,00,000
+const getRazorpayCredentials = () => {
     var _a, _b;
-    return new razorpay_1.default({
-        key_id: process.env.VITE_RAZORPAY_KEY_ID || ((_a = functions.config().razorpay) === null || _a === void 0 ? void 0 : _a.key_id) || 'dummy_key',
-        key_secret: process.env.RAZORPAY_KEY_SECRET || ((_b = functions.config().razorpay) === null || _b === void 0 ? void 0 : _b.key_secret) || 'dummy_secret',
-    });
+    const keyId = process.env.VITE_RAZORPAY_KEY_ID || ((_a = functions.config().razorpay) === null || _a === void 0 ? void 0 : _a.key_id);
+    const keySecret = process.env.RAZORPAY_KEY_SECRET || ((_b = functions.config().razorpay) === null || _b === void 0 ? void 0 : _b.key_secret);
+    if (!keyId || !keySecret) {
+        throw new Error('Razorpay credentials are not configured (RAZORPAY key_id/key_secret missing).');
+    }
+    return { keyId, keySecret };
+};
+const getRazorpayInstance = () => {
+    const { keyId, keySecret } = getRazorpayCredentials();
+    return new razorpay_1.default({ key_id: keyId, key_secret: keySecret });
 };
 exports.createRazorpayOrder = functions.https.onCall(async (data, context) => {
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'User must be logged in.');
     }
     const { amount, isSubscription, planId } = data;
-    if (!amount || amount <= 0) {
+    if (!amount || typeof amount !== 'number' || amount <= 0) {
         throw new functions.https.HttpsError('invalid-argument', 'Valid amount is required.');
+    }
+    // Server-side price validation: the client cannot dictate its own subscription price.
+    if (isSubscription) {
+        if (typeof planId !== 'string' || !(planId in SUBSCRIPTION_PLAN_PRICES_PAISE)) {
+            throw new functions.https.HttpsError('invalid-argument', 'Unknown subscription plan.');
+        }
+        const expectedAmount = SUBSCRIPTION_PLAN_PRICES_PAISE[planId];
+        if (amount !== expectedAmount) {
+            throw new functions.https.HttpsError('invalid-argument', `Amount does not match the price for plan "${planId}".`);
+        }
+    }
+    else if (amount > MAX_DONATION_AMOUNT_PAISE) {
+        throw new functions.https.HttpsError('invalid-argument', 'Amount exceeds the maximum allowed donation.');
     }
     try {
         const razorpay = getRazorpayInstance();
@@ -85,23 +112,31 @@ exports.createRazorpayOrder = functions.https.onCall(async (data, context) => {
         };
     }
     catch (error) {
-        console.error('Error creating Razorpay order:', error);
+        console.error('Error creating Razorpay order:', { message: error === null || error === void 0 ? void 0 : error.message, uid: context.auth.uid });
         throw new functions.https.HttpsError('internal', 'Unable to create order.');
     }
 });
 exports.razorpayWebhook = functions.https.onRequest(async (req, res) => {
-    var _a;
-    const secret = process.env.RAZORPAY_WEBHOOK_SECRET || ((_a = functions.config().razorpay) === null || _a === void 0 ? void 0 : _a.webhook_secret) || 'dummy_webhook_secret';
+    var _a, _b, _c;
+    const secret = process.env.RAZORPAY_WEBHOOK_SECRET || ((_a = functions.config().razorpay) === null || _a === void 0 ? void 0 : _a.webhook_secret);
     const signature = req.headers['x-razorpay-signature'];
+    if (!secret) {
+        console.error('Webhook Error: RAZORPAY_WEBHOOK_SECRET is not configured.');
+        res.status(500).send('Webhook not configured');
+        return;
+    }
     if (!signature) {
         res.status(400).send('Missing signature');
         return;
     }
     try {
-        const bodyString = JSON.stringify(req.body);
+        // Verify against the exact raw bytes Razorpay signed — re-serializing the
+        // parsed req.body via JSON.stringify can byte-mismatch the original
+        // (key order, whitespace, numeric formatting), causing valid deliveries
+        // to be wrongly rejected. `rawBody` is populated by the Functions runtime.
         const expectedSignature = crypto
             .createHmac('sha256', secret)
-            .update(bodyString)
+            .update(req.rawBody)
             .digest('hex');
         if (expectedSignature !== signature) {
             res.status(400).send('Invalid signature');
@@ -111,6 +146,17 @@ exports.razorpayWebhook = functions.https.onRequest(async (req, res) => {
         if (event === 'payment.captured' || event === 'order.paid') {
             const payment = req.body.payload.payment.entity;
             const orderId = payment.order_id;
+            const donationRef = db.collection('donations').doc(payment.id);
+            // Idempotency guard: Razorpay retries webhook deliveries on any non-2xx
+            // response, and may also deliver the same event more than once. Without
+            // this check, a retried delivery would re-run the plan-upgrade below and
+            // silently extend a user's subscription by another 30 days from
+            // wall-clock "now" each time, even though only one payment was made.
+            const existingDonation = await donationRef.get();
+            if (existingDonation.exists && ((_b = existingDonation.data()) === null || _b === void 0 ? void 0 : _b.status) === 'successful') {
+                res.status(200).send('OK (already processed)');
+                return;
+            }
             // Retrieve pending order to know which user this belongs to
             const pendingRef = db.collection('donations_pending').doc(orderId);
             const pendingSnap = await pendingRef.get();
@@ -123,7 +169,10 @@ exports.razorpayWebhook = functions.https.onRequest(async (req, res) => {
                 isSubscription = pendingData.isSubscription;
                 planId = pendingData.planId;
             }
-            await db.collection('donations').doc(payment.id).set({
+            if (userId === 'unknown') {
+                console.error('Webhook Error: no matching donations_pending doc for order', { orderId, paymentId: payment.id });
+            }
+            await donationRef.set({
                 userId,
                 amount: payment.amount / 100, // standard INR
                 status: 'successful',
@@ -152,7 +201,7 @@ exports.razorpayWebhook = functions.https.onRequest(async (req, res) => {
         res.status(200).send('OK');
     }
     catch (error) {
-        console.error('Webhook Error:', error);
+        console.error('Webhook Error:', { message: error === null || error === void 0 ? void 0 : error.message, event: (_c = req.body) === null || _c === void 0 ? void 0 : _c.event });
         res.status(500).send('Internal Server Error');
     }
 });

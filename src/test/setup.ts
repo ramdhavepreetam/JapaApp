@@ -14,17 +14,25 @@ beforeAll(() => {
 vi.mock('firebase/firestore', async () => {
     return {
         collection: vi.fn(),
-        doc: vi.fn(),
+        doc: vi.fn(() => ({ id: 'mock-doc-id' })),
+        getDoc: vi.fn(),
         getDocs: vi.fn(),
         query: vi.fn(),
         where: vi.fn(),
+        orderBy: vi.fn(),
+        limit: vi.fn(),
+        startAfter: vi.fn(),
+        getCountFromServer: vi.fn(),
         increment: vi.fn((n) => n),
+        serverTimestamp: vi.fn(() => ({ seconds: Date.now() / 1000, nanoseconds: 0 })),
+        setDoc: vi.fn().mockResolvedValue(undefined),
         writeBatch: vi.fn(() => ({
             set: vi.fn(),
             update: vi.fn(),
             delete: vi.fn(),
             commit: vi.fn().mockResolvedValue(undefined),
         })),
+        runTransaction: vi.fn(),
         Timestamp: {
             now: vi.fn(() => ({ seconds: Date.now() / 1000, nanoseconds: 0 })),
             fromDate: vi.fn((date: Date) => {
@@ -46,7 +54,8 @@ vi.mock('../lib/firebase', () => ({
     db: {},
     auth: {
         currentUser: null
-    }
+    },
+    analytics: null
 }));
 
 afterEach(() => {

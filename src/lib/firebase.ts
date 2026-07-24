@@ -5,10 +5,7 @@ import { getAnalytics } from 'firebase/analytics';
 // import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 
 
-// Your web app's Firebase configuration
-// For now, these are placeholders. You will need to create a project in the Firebase Console
-// and replace these with your actual config keys.
-// Hardcoded config for debugging to ensure values are correct
+// Firebase config, sourced from .env.local (see VITE_FIREBASE_* in CLAUDE.md)
 const firebaseConfig = {
     apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
     authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -44,7 +41,7 @@ export const analytics = firebaseConfig.measurementId ? getAnalytics(app) : null
 // Helper to log if we are running in mock mode
 if (firebaseConfig.apiKey === "MOCK_KEY") {
     console.warn("⚠️ Firebase is running with MOCK keys. Database features will not work until you add valid credentials to .env.local");
-} else {
+} else if (import.meta.env.DEV) {
     console.log("Firebase Config Loaded:", {
         projectId: firebaseConfig.projectId,
         authDomain: firebaseConfig.authDomain,

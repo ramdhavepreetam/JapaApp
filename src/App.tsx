@@ -4,18 +4,12 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { JapaCounter } from './components/JapaCounter';
-import { ReportView } from './components/ReportView';
-import { PledgesView } from './components/PledgesView';
-import { ProfileView } from './components/ProfileView';
 import { GuestJapaView } from './components/GuestJapaView';
-import { CommunityListPage } from './components/pages/CommunityListPage';
-import { CommunityCreatePage } from './components/pages/CommunityCreatePage';
-import { CommunityHomePage } from './components/pages/CommunityHomePage';
-import { NotificationsPage } from './components/pages/NotificationsPage';
 import { MilestoneCelebration } from './components/MilestoneCelebration';
+import { PwaUpdatePrompt } from './components/PwaUpdatePrompt';
 import { Flame, Home, User, Users, Bell, Shield } from 'lucide-react';
 import { Pledge, PersonalPledge } from './types/pledge';
-import { Box, Paper, BottomNavigation, BottomNavigationAction, IconButton, Badge } from '@mui/material';
+import { Box, Paper, BottomNavigation, BottomNavigationAction, IconButton, Badge, CircularProgress } from '@mui/material';
 import { CommunityProvider } from './contexts/CommunityContext';
 import { useAuth } from './contexts/AuthContext';
 import { communityService } from './services/communityService';
@@ -24,9 +18,23 @@ import { storage } from './lib/storage';
 import { getRankForJaps, isMilestoneSeen, markMilestoneSeen, Rank } from './lib/ranks';
 import { getThemeForRank } from './theme';
 
-// Lazy load admin
+// Lazy load views that aren't shown on first paint — keeps the initial bundle
+// small since `view` always starts at 'counter' (JapaCounter stays eager).
 import { lazy, Suspense } from 'react';
 const AdminPanel = lazy(() => import('./admin/AdminPanel').then(m => ({ default: m.AdminPanel })));
+const ReportView = lazy(() => import('./components/ReportView').then(m => ({ default: m.ReportView })));
+const PledgesView = lazy(() => import('./components/PledgesView').then(m => ({ default: m.PledgesView })));
+const ProfileView = lazy(() => import('./components/ProfileView').then(m => ({ default: m.ProfileView })));
+const CommunityListPage = lazy(() => import('./components/pages/CommunityListPage').then(m => ({ default: m.CommunityListPage })));
+const CommunityCreatePage = lazy(() => import('./components/pages/CommunityCreatePage').then(m => ({ default: m.CommunityCreatePage })));
+const CommunityHomePage = lazy(() => import('./components/pages/CommunityHomePage').then(m => ({ default: m.CommunityHomePage })));
+const NotificationsPage = lazy(() => import('./components/pages/NotificationsPage').then(m => ({ default: m.NotificationsPage })));
+
+const ViewLoadingFallback = () => (
+    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+        <CircularProgress size={28} />
+    </Box>
+);
 
 
 function App() {
@@ -141,6 +149,7 @@ function App() {
                 <CommunityProvider>
                     <GuestJapaView pledgeId={guestPledgeId} />
                 </CommunityProvider>
+                <PwaUpdatePrompt />
             </ThemeProvider>
         );
     }
@@ -164,6 +173,7 @@ function App() {
                     <Box sx={{ position: 'absolute', top: 16, right: 16, zIndex: 50 }}>
                         <IconButton
                             onClick={() => { setPreviousView(view); setView('notifications'); setUnreadCount(0); }}
+                            aria-label={t('nav.notifications')}
                             sx={{ bgcolor: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(4px)', '&:hover': { bgcolor: 'white' } }}
                         >
                             <Badge color="error" badgeContent={unreadCount} max={9}>
@@ -201,7 +211,9 @@ function App() {
                                 exit={{ x: 300, opacity: 0 }}
                                 style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 60, backgroundColor: 'white' }}
                             >
-                                <ReportView onBack={handleBack} />
+                                <Suspense fallback={<ViewLoadingFallback />}>
+                                    <ReportView onBack={handleBack} />
+                                </Suspense>
                             </motion.div>
                         )}
 
@@ -213,12 +225,14 @@ function App() {
                                 exit={{ opacity: 0 }}
                                 style={{ width: '100%', height: '100%' }}
                             >
-                                <PledgesView
-                                    onSelectPledge={handleSelectPledge}
-                                    onSelectPersonalPledge={handleSelectPersonalPledge}
-                                    completedPledge={completedPersonalPledge}
-                                    onCelebrationDismiss={() => setCompletedPersonalPledge(null)}
-                                />
+                                <Suspense fallback={<ViewLoadingFallback />}>
+                                    <PledgesView
+                                        onSelectPledge={handleSelectPledge}
+                                        onSelectPersonalPledge={handleSelectPersonalPledge}
+                                        completedPledge={completedPersonalPledge}
+                                        onCelebrationDismiss={() => setCompletedPersonalPledge(null)}
+                                    />
+                                </Suspense>
                             </motion.div>
                         )}
 
@@ -230,7 +244,9 @@ function App() {
                                 exit={{ opacity: 0 }}
                                 style={{ width: '100%', height: '100%' }}
                             >
-                                <CommunityListPage onNavigate={handleNavigate} />
+                                <Suspense fallback={<ViewLoadingFallback />}>
+                                    <CommunityListPage onNavigate={handleNavigate} />
+                                </Suspense>
                             </motion.div>
                         )}
 
@@ -243,10 +259,12 @@ function App() {
                                 transition={{ type: 'spring', damping: 25, stiffness: 200 }}
                                 style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 10, backgroundColor: 'white' }}
                             >
-                                <CommunityCreatePage
-                                    onBack={() => setView('communities')}
-                                    onCreated={(id) => { setActiveCommunityId(id); setView('community-home'); }}
-                                />
+                                <Suspense fallback={<ViewLoadingFallback />}>
+                                    <CommunityCreatePage
+                                        onBack={() => setView('communities')}
+                                        onCreated={(id) => { setActiveCommunityId(id); setView('community-home'); }}
+                                    />
+                                </Suspense>
                             </motion.div>
                         )}
 
@@ -258,10 +276,12 @@ function App() {
                                 exit={{ x: '100%' }}
                                 style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 10, backgroundColor: 'white' }}
                             >
-                                <CommunityHomePage
-                                    communityId={activeCommunityId}
-                                    onBack={() => setView('communities')}
-                                />
+                                <Suspense fallback={<ViewLoadingFallback />}>
+                                    <CommunityHomePage
+                                        communityId={activeCommunityId}
+                                        onBack={() => setView('communities')}
+                                    />
+                                </Suspense>
                             </motion.div>
                         )}
 
@@ -273,11 +293,13 @@ function App() {
                                 exit={{ y: -20, opacity: 0 }}
                                 style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 60, backgroundColor: 'white' }}
                             >
-                                <NotificationsPage
-                                    onBack={() => setView(previousView)}
-                                    onNavigate={handleNavigate}
-                                    onRead={refreshUnreadCount}
-                                />
+                                <Suspense fallback={<ViewLoadingFallback />}>
+                                    <NotificationsPage
+                                        onBack={() => setView(previousView)}
+                                        onNavigate={handleNavigate}
+                                        onRead={refreshUnreadCount}
+                                    />
+                                </Suspense>
                             </motion.div>
                         )}
 
@@ -289,10 +311,12 @@ function App() {
                                 exit={{ opacity: 0 }}
                                 style={{ width: '100%', height: '100%' }}
                             >
-                                <ProfileView
-                                    onSelectPledge={handleSelectPledge}
-                                    onNavigateToCommunity={() => setView('pledges')} // Or communities? Keep pledges for now.
-                                />
+                                <Suspense fallback={<ViewLoadingFallback />}>
+                                    <ProfileView
+                                        onSelectPledge={handleSelectPledge}
+                                        onNavigateToCommunity={() => setView('pledges')} // Or communities? Keep pledges for now.
+                                    />
+                                </Suspense>
                             </motion.div>
                         )}
 
@@ -337,6 +361,7 @@ function App() {
             </Box>
             <MilestoneCelebration rank={pendingCelebration} onDismiss={() => setPendingCelebration(null)} />
         </CommunityProvider>
+        <PwaUpdatePrompt />
         </ThemeProvider>
     );
 }

@@ -4,7 +4,8 @@
     "pledges": "Pledges",
     "groups": "Groups",
     "profile": "Profile",
-    "admin": "Admin"
+    "admin": "Admin",
+    "notifications": "Notifications"
   },
   "counter": {
     "startPrompt": "Start a session to begin 🙏",
@@ -21,7 +22,9 @@
     "malas": "malas",
     "online": "Online",
     "offline": "Offline",
-    "sessionTotal": "Session: {{malas}} malas"
+    "sessionTotal": "Session: {{malas}} malas",
+    "muteSound": "Mute sound",
+    "unmuteSound": "Unmute sound"
   },
   "profile": {
     "guestMode": "Guest Mode",
@@ -189,5 +192,10 @@
     "dailyHistory": "Daily History",
     "empty": "No chanting history yet. Start today!",
     "malasCompleted": "Malas Completed"
+  },
+  "pwa": {
+    "updateAvailable": "A new version of DoJapa is available.",
+    "reload": "Reload",
+    "dismiss": "Later"
   }
 }

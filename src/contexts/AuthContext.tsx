@@ -72,6 +72,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const signInWithGoogle = async () => {
         const provider = new GoogleAuthProvider();
+        // Force the account chooser every time — without this, Google silently
+        // reuses the browser's last-used session cookie, so users with multiple
+        // Google accounts can never switch during sign-in.
+        provider.setCustomParameters({ prompt: 'select_account' });
         try {
             await signInWithPopup(auth, provider);
         } catch (error: any) {

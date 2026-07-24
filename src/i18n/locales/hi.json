@@ -4,7 +4,8 @@
     "pledges": "प्रतिज्ञाएं",
     "groups": "समूह",
     "profile": "प्रोफ़ाइल",
-    "admin": "एडमिन"
+    "admin": "एडमिन",
+    "notifications": "सूचनाएं"
   },
   "counter": {
     "startPrompt": "जाप शुरू करने के लिए सत्र प्रारंभ करें 🙏",
@@ -21,7 +22,9 @@
     "malas": "माला",
     "online": "ऑनलाइन",
     "offline": "ऑफ़लाइन",
-    "sessionTotal": "सत्र: {{malas}} माला"
+    "sessionTotal": "सत्र: {{malas}} माला",
+    "muteSound": "ध्वनि बंद करें",
+    "unmuteSound": "ध्वनि चालू करें"
   },
   "profile": {
     "guestMode": "अतिथि मोड",
@@ -189,5 +192,10 @@
     "dailyHistory": "दैनिक इतिहास",
     "empty": "अभी तक कोई जाप इतिहास नहीं। आज शुरू करें!",
     "malasCompleted": "पूर्ण माला"
+  },
+  "pwa": {
+    "updateAvailable": "DoJapa का नया संस्करण उपलब्ध है।",
+    "reload": "रीलोड करें",
+    "dismiss": "बाद में"
   }
 }

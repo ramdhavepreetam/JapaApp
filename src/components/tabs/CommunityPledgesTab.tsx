@@ -11,6 +11,7 @@ import { PledgeForm } from '../PledgeForm';
 import { useAuth } from '../../contexts/AuthContext';
 import { UserRole } from '../../types/community';
 import { User } from 'firebase/auth';
+import { getErrorMessage } from '../../utils/getErrorMessage';
 
 interface CommunityPledgesTabProps {
     communityId: string;
@@ -43,8 +44,8 @@ export const CommunityPledgesTab: React.FC<CommunityPledgesTabProps> = ({ commun
             ]);
             setPledges(data);
             setMyParticipations(myData);
-        } catch (e: any) {
-            setError(e.message || 'Failed to load pledges');
+        } catch (e: unknown) {
+            setError(getErrorMessage(e, 'Failed to load pledges'));
         } finally {
             setLoading(false);
         }
@@ -60,8 +61,8 @@ export const CommunityPledgesTab: React.FC<CommunityPledgesTabProps> = ({ commun
             await pledgeService.createPledge({ ...data, communityId }, user as User);
             setShowForm(false);
             await load();
-        } catch (e: any) {
-            setCreateError(e.message || 'Failed to create pledge');
+        } catch (e: unknown) {
+            setCreateError(getErrorMessage(e, 'Failed to create pledge'));
         } finally {
             setCreating(false);
         }
@@ -77,8 +78,8 @@ export const CommunityPledgesTab: React.FC<CommunityPledgesTabProps> = ({ commun
         try {
             await pledgeService.joinPledge(pledge, user as User, false);
             await load();
-        } catch (e: any) {
-            setError(e.message || 'Failed to join pledge');
+        } catch (e: unknown) {
+            setError(getErrorMessage(e, 'Failed to join pledge'));
         }
     };
 
@@ -91,8 +92,8 @@ export const CommunityPledgesTab: React.FC<CommunityPledgesTabProps> = ({ commun
             await pledgeService.contribute(contributeDialog.pledge.id, user.uid, malas);
             setContributeDialog({ open: false, pledge: null, malas: '' });
             await load();
-        } catch (e: any) {
-            setError(e.message || 'Failed to record contribution');
+        } catch (e: unknown) {
+            setError(getErrorMessage(e, 'Failed to record contribution'));
         } finally {
             setContributing(false);
         }
@@ -103,8 +104,8 @@ export const CommunityPledgesTab: React.FC<CommunityPledgesTabProps> = ({ commun
         try {
             await pledgeService.leavePledge(pledge.id, user.uid);
             await load();
-        } catch (e: any) {
-            setError(e.message || 'Failed to leave pledge');
+        } catch (e: unknown) {
+            setError(getErrorMessage(e, 'Failed to leave pledge'));
         }
     };
 
@@ -113,8 +114,8 @@ export const CommunityPledgesTab: React.FC<CommunityPledgesTabProps> = ({ commun
         try {
             await pledgeService.deletePledge(pledge.id, user?.uid || '');
             await load();
-        } catch (e: any) {
-            setError(e.message || 'Failed to delete pledge');
+        } catch (e: unknown) {
+            setError(getErrorMessage(e, 'Failed to delete pledge'));
         }
     };
 
@@ -123,8 +124,8 @@ export const CommunityPledgesTab: React.FC<CommunityPledgesTabProps> = ({ commun
         try {
             await pledgeService.updatePledge(pledge.id, { isPublic: true }, user.uid);
             setPledges(prev => prev.map(item => item.id === pledge.id ? { ...item, isPublic: true } : item));
-        } catch (e: any) {
-            setError(e.message || 'Failed to enable guest QR');
+        } catch (e: unknown) {
+            setError(getErrorMessage(e, 'Failed to enable guest QR'));
             throw e;
         }
     };

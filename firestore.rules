@@ -135,13 +135,27 @@ service cloud.firestore {
       // Create: Any authenticated user can create a community
       allow create: if isAuthenticated();
       
-      // Update: 
+      // Update:
       // 1. Admin/Owner can update settings.
-      // 2. Any Auth user can update counters (membersCount, totalMalas, totalMantras) - needed for joining/chanting.
-      allow update: if isCommunityAdmin(communityId) || 
+      // 2. Active members can bump totalMalas/totalMantras — needed when
+      //    communityJapaService submits a japa entry.
+      // 3. Any authenticated user may adjust membersCount by exactly +-1 —
+      //    needed for join/leave/approve/remove/ban, all of which happen
+      //    before or after the caller's own membership doc is created/updated,
+      //    so we can't require membership here. Bounding the delta to +-1
+      //    prevents a non-member from setting membersCount to an arbitrary value.
+      allow update: if isCommunityAdmin(communityId) ||
                     (
-                      isAuthenticated() && 
-                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['membersCount', 'totalMalas', 'totalMantras'])
+                      isCommunityMember(communityId) &&
+                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['totalMalas', 'totalMantras'])
+                    ) ||
+                    (
+                      isAuthenticated() &&
+                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['membersCount']) &&
+                      (
+                        request.resource.data.membersCount == resource.data.membersCount + 1 ||
+                        request.resource.data.membersCount == resource.data.membersCount - 1
+                      )
                     );
       
       // Delete: Only Owner
@@ -218,11 +232,24 @@ service cloud.firestore {
           request.resource.data.communityId != null &&
           isCommunityAdmin(request.resource.data.communityId);
         // Any authenticated user may increment currentMalas (contribute) or participants
-        // (join/leave). All other field edits remain creator-only.
+        // (join/leave), but never both in the same write — the real client only ever
+        // touches one or the other. Bounds prevent a non-creator from setting these to
+        // an arbitrary value: currentMalas may only increase (blocks zeroing/shrinking
+        // someone else's pledge progress); participants may only move by exactly +-1.
         allow update: if isAuthenticated() &&
                       (
                         resource.data.creatorId == request.auth.uid ||
-                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['currentMalas', 'participants'])
+                        (
+                          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['currentMalas']) &&
+                          request.resource.data.currentMalas > resource.data.currentMalas
+                        ) ||
+                        (
+                          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participants']) &&
+                          (
+                            request.resource.data.participants == resource.data.participants + 1 ||
+                            request.resource.data.participants == resource.data.participants - 1
+                          )
+                        )
                       );
         // Creator, app admin, or community admin (for community-scoped pledges) can delete.
         allow delete: if isAuthenticated() && (
