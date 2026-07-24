@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Volume2, VolumeX, RotateCcw, Sparkles, Target, Users, Play, RotateCw, WifiOff, Wifi, Flame } from 'lucide-react';
@@ -54,7 +54,7 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
     const { user } = useAuth();
     const { myPledges, refresh: refreshPledges } = useCommunity();
     const [data, setData] = useState<StorageSchema>(storage.get());
-    const personalMalasAdded = useRef(0);
+    const [personalMalasAdded, setPersonalMalasAdded] = useState(0);
     const [soundEnabled, setSoundEnabled] = useState(true);
     const [feedback, setFeedback] = useState<string | null>(null);
     const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -102,7 +102,7 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
     }, []);
 
     useEffect(() => {
-        personalMalasAdded.current = 0;
+        setPersonalMalasAdded(0);
     }, [activePersonalPledge?.id]);
 
     useEffect(() => {
@@ -330,17 +330,19 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
                 }
                 // 3. Personal Pledge Mode
                 else if (mode === 'personal-pledge' && contextId && activePersonalPledge) {
-                    personalMalasAdded.current += 1;
+                    setPersonalMalasAdded(prev => {
+                        const next = prev + 1;
+                        const newTotal = activePersonalPledge.currentMalas + next;
+                        if (newTotal >= activePersonalPledge.targetMalas) {
+                            onPersonalPledgeComplete?.(activePersonalPledge);
+                        }
+                        return next;
+                    });
                     import('../services/personalPledgeService').then(({ personalPledgeService }) => {
                         personalPledgeService.contributeToPersonalPledge(user.uid, contextId!, 1)
                             .catch((err: unknown) => console.error('Personal pledge contribute failed', err));
                     });
                     userService.updateUserStats(user.uid, 1, 108).catch(() => { queueSync(108, 1); syncPending(); });
-
-                    const newTotal = activePersonalPledge.currentMalas + personalMalasAdded.current;
-                    if (newTotal >= activePersonalPledge.targetMalas) {
-                        onPersonalPledgeComplete?.(activePersonalPledge);
-                    }
                 }
                 // 4. Personal Mode
                 else {
@@ -557,7 +559,7 @@ export const JapaCounter: React.FC<JapaCounterProps> = ({
                         </Zoom>
                         <Box sx={{ display: 'flex', gap: 2, bgcolor: 'rgba(255,255,255,0.9)', px: 2, py: 0.5, borderRadius: 4, boxShadow: 1 }}>
                             <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontWeight: 600, color: 'primary.dark' }}>
-                                <Target size={14} /> {activePersonalPledge.currentMalas} / {activePersonalPledge.targetMalas} malas
+                                <Target size={14} /> {activePersonalPledge.currentMalas + personalMalasAdded} / {activePersonalPledge.targetMalas} malas
                             </Typography>
                         </Box>
                     </Box>
